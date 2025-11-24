@@ -1,0 +1,104 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="logo-container">
+      <img src="assets/images/logo.png" alt="Med-Connect Logo" class="logo">
+    </div>
+
+    <h1 class="auth-title">Create Account</h1>
+    <p class="auth-subtitle">Join Med-Connect to manage your health</p>
+
+    <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" class="auth-form">
+      <div class="form-group">
+        <label for="fullName" class="form-label">Full Name</label>
+        <input
+          type="text"
+          id="fullName"
+          formControlName="fullName"
+          class="form-input"
+          [class.error]="fullName?.invalid && fullName?.touched"
+          placeholder="John Doe"
+        >
+        <div class="error-message" *ngIf="fullName?.invalid && fullName?.touched">
+          <span *ngIf="fullName?.errors?.['required']">Full name is required</span>
+          <span *ngIf="fullName?.errors?.['minlength']">Name must be at least 3 characters</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Email</label>
+        <input
+          type="email"
+          id="email"
+          formControlName="email"
+          class="form-input"
+          [class.error]="email?.invalid && email?.touched"
+          placeholder="you@example.com"
+        >
+        <div class="error-message" *ngIf="email?.invalid && email?.touched">
+          <span *ngIf="email?.errors?.['required']">Email is required</span>
+          <span *ngIf="email?.errors?.['email']">Please enter a valid email</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Password</label>
+        <input
+          type="password"
+          id="password"
+          formControlName="password"
+          class="form-input"
+          [class.error]="password?.invalid && password?.touched"
+          placeholder="••••••••"
+        >
+        <div class="error-message" *ngIf="password?.invalid && password?.touched">
+          <span *ngIf="password?.errors?.['required']">Password is required</span>
+          <span *ngIf="password?.errors?.['minlength']">Password must be at least 6 characters</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">I am registering as</label>
+        
+        <div class="radio-group">
+          <label class="radio-option" [class.selected]="userType?.value === 'patient'">
+            <input
+              type="radio"
+              formControlName="userType"
+              value="patient"
+            >
+            <div class="radio-content">
+              <span class="radio-title">Patient</span>
+              <span class="radio-description">Manage my health records and connect with doctors</span>
+            </div>
+          </label>
+
+          <label class="radio-option" [class.selected]="userType?.value === 'doctor'">
+            <input
+              type="radio"
+              formControlName="userType"
+              value="doctor"
+            >
+            <div class="radio-content">
+              <span class="radio-title">Healthcare Professional</span>
+              <span class="radio-description">Access patient records and manage consultations</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="error-message" *ngIf="errorMessage">
+        {{ errorMessage }}
+      </div>
+
+      <button type="submit" class="btn-primary" [disabled]="loading">
+        <span *ngIf="!loading">Sign Up</span>
+        <span *ngIf="loading">Creating Account...</span>
+      </button>
+
+      <p class="auth-footer">
+        Already have an account? 
+        <a (click)="navigateToSignIn()"  class="link">Login</a>
+      </p>
+    </form>
+  </div>
+</div>

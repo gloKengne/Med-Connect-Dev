@@ -25,6 +25,8 @@ export class Signup {
       fullName: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
+      phone: ['', [Validators.required, Validators.pattern(/^\+237[6-9]\d{8}$/)]],
+      address: ['', Validators.required],
       userType: ['patient', Validators.required]
     });
   }
@@ -39,6 +41,14 @@ export class Signup {
 
   get password() {
     return this.signupForm.get('password');
+  }
+
+  get phone() {
+    return this.signupForm.get('phone');
+  }
+
+  get address() {
+    return this.signupForm.get('address');
   }
 
   get userType() {

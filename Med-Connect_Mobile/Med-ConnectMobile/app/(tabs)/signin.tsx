@@ -1,11 +1,15 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+
+const API_URL = 'http://localhost:5000/api/auth';
 
 export default function SignInPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const router = useRouter();
 
@@ -14,9 +18,63 @@ export default function SignInPage() {
     router.push("/signup");
   }
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
+    // Clear previous error message
+    setErrorMessage('');
+
+    // Validation checks
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage('Please fill in all fields.');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setErrorMessage('Please enter a valid email');
+      return;
+    }
+
+    setLoading(true);
     console.log('Sign in with:', { email, password });
-    // Add your signin logic here
+
+    try {
+      console.log('Sending request to:', `${API_URL}/login`);
+      
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(),
+          password: password,
+        }),
+      });
+
+      console.log('Response status:', response.status);
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+
+      if (response.ok) {
+        console.log("Login successful, redirecting to dashboard");
+        // Store the token if your backend returns one
+        if (data.token) {
+          // You might want to store this in AsyncStorage or SecureStore
+          console.log('Token received:', data.token);
+        }
+        router.push('/(tabs)/dasboard');
+      } else {
+        // Display custom error message
+        setErrorMessage(data.message || data.error || 'Invalid email or password');
+      }
+    } catch (error) {
+      console.error('Sign in error:', error);
+      setErrorMessage('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
@@ -41,6 +99,13 @@ export default function SignInPage() {
 
           {/* Form */}
           <View style={styles.form}>
+            {/* Error Message */}
+            {errorMessage ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+              </View>
+            ) : null}
+
             {/* Email Input */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email</Text>
@@ -51,6 +116,7 @@ export default function SignInPage() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!loading}
               />
             </View>
 
@@ -63,23 +129,32 @@ export default function SignInPage() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                editable={!loading}
               />
             </View>
 
             {/* Forgot Password Link */}
-            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
+            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword} disabled={loading}>
               <Text style={styles.forgotPasswordText}>Forgot password?</Text>
             </TouchableOpacity>
 
             {/* Sign In Button */}
-            <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
-              <Text style={styles.signInButtonText}>Sign In</Text>
+            <TouchableOpacity 
+              style={[styles.signInButton, loading && styles.signInButtonDisabled]} 
+              onPress={handleSignIn}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+              )}
             </TouchableOpacity>
 
             {/* Sign Up Link */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={handleSignUp}>
+              <TouchableOpacity onPress={handleSignUp} disabled={loading}>
                 <Text style={styles.signUpLink}>Sign up</Text>
               </TouchableOpacity>
             </View>
@@ -141,6 +216,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  errorContainer: {
+    backgroundColor: '#fee',
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc2626',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#991b1b',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   inputGroup: {
     marginBottom: 20,
   },
@@ -174,6 +262,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
+  },
+  signInButtonDisabled: {
+    backgroundColor: '#6b9dc4',
   },
   signInButtonText: {
     color: '#fff',

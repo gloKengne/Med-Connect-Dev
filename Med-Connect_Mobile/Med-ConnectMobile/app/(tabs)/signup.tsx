@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+
+const API_URL = 'http://localhost:5000/api/auth';
+
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -8,15 +11,81 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [userType, setUserType] = useState('patient');
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-    const handleSignin = () => {
-      console.log('Navigate to signup');
-      router.push("/signin");
-    };
+  const handleSignin = () => {
+    console.log('Navigate to signin');
+    router.push("/signin");
+  };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
+    // Clear previous error message
+    setErrorMessage('');
+
+    // Validation checks
+    if (!fullName.trim() || !email.trim() || !password.trim()) {
+      setErrorMessage('Please fill in all fields.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setErrorMessage('Please enter a valid email');
+      return;
+    }
+
+    setLoading(true);
     console.log('Sign up with:', { fullName, email, password, userType });
-    // Add your signup logic here
+
+    try {
+      const role = userType === 'patient' ? 'patient' : 'doctor';
+
+      console.log('Sending request to:', `${API_URL}/register`);
+      console.log('Request body:', {
+        name: fullName,
+        email: email.toLowerCase().trim(),
+        role: role,
+      });
+
+      const response = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: fullName,
+          email: email.toLowerCase().trim(),
+          password: password,
+          role: role,
+        }),
+      });
+
+      console.log('Response status:', response.status);
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+      console.log("response", response);
+      
+      if (response.ok) {
+        console.log("Account created successfully, redirecting to signin");
+        router.push('/signin');
+      } else {
+        // Display custom error message
+        setErrorMessage(data.message || data.error || 'Failed to create account');
+      }
+    } catch (error) {
+      console.error('Sign up error:', error);
+      setErrorMessage('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -36,6 +105,13 @@ export default function SignUpPage() {
 
           {/* Form */}
           <View style={styles.form}>
+            {/* Error Message */}
+            {errorMessage ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+              </View>
+            ) : null}
+
             {/* Full Name Input */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Full Name</Text>
@@ -45,6 +121,7 @@ export default function SignUpPage() {
                 value={fullName}
                 onChangeText={setFullName}
                 autoCapitalize="words"
+                editable={!loading}
               />
             </View>
 
@@ -58,6 +135,7 @@ export default function SignUpPage() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!loading}
               />
             </View>
 
@@ -70,6 +148,7 @@ export default function SignUpPage() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                editable={!loading}
               />
             </View>
 
@@ -81,6 +160,7 @@ export default function SignUpPage() {
               <TouchableOpacity 
                 style={[styles.radioOption, userType === 'patient' && styles.radioOptionSelected]}
                 onPress={() => setUserType('patient')}
+                disabled={loading}
               >
                 <View style={styles.radioButton}>
                   <View style={[styles.radioOuter, userType === 'patient' && styles.radioOuterSelected]}>
@@ -95,12 +175,13 @@ export default function SignUpPage() {
 
               {/* Healthcare Professional Option */}
               <TouchableOpacity 
-                style={[styles.radioOption, userType === 'professional' && styles.radioOptionSelected]}
-                onPress={() => setUserType('professional')}
+                style={[styles.radioOption, userType === 'doctor' && styles.radioOptionSelected]}
+                onPress={() => setUserType('doctor')}
+                disabled={loading}
               >
                 <View style={styles.radioButton}>
-                  <View style={[styles.radioOuter, userType === 'professional' && styles.radioOuterSelected]}>
-                    {userType === 'professional' && <View style={styles.radioInner} />}
+                  <View style={[styles.radioOuter, userType === 'doctor' && styles.radioOuterSelected]}>
+                    {userType === 'doctor' && <View style={styles.radioInner} />}
                   </View>
                 </View>
                 <View style={styles.radioContent}>
@@ -111,14 +192,22 @@ export default function SignUpPage() {
             </View>
 
             {/* Sign Up Button */}
-            <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-              <Text style={styles.signUpButtonText}>Sign Up</Text>
+            <TouchableOpacity 
+              style={[styles.signUpButton, loading && styles.signUpButtonDisabled]} 
+              onPress={handleSignUp}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.signUpButtonText}>Sign Up</Text>
+              )}
             </TouchableOpacity>
 
             {/* Sign In Link */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
-              <TouchableOpacity onPress={handleSignin}>
+              <TouchableOpacity onPress={handleSignin} disabled={loading}>
                 <Text style={styles.signInLink}>Sign in</Text>
               </TouchableOpacity>
             </View>
@@ -179,6 +268,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+  },
+  errorContainer: {
+    backgroundColor: '#fee',
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc2626',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#991b1b',
+    fontSize: 14,
+    fontWeight: '500',
   },
   inputGroup: {
     marginBottom: 20,
@@ -254,6 +356,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
+  },
+  signUpButtonDisabled: {
+    backgroundColor: '#6b9dc4',
   },
   signUpButtonText: {
     color: '#fff',

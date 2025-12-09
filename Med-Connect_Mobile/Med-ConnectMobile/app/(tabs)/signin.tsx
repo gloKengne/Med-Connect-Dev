@@ -65,7 +65,7 @@ export default function SignInPage() {
           // You might want to store this in AsyncStorage or SecureStore
           console.log('Token received:', data.token);
         }
-        router.push('/(tabs)/dasboard');
+        router.push('/(tabs)/Patient/patient_dashboard');
       } else {
         // Display custom error message
         setErrorMessage(data.message || data.error || 'Invalid email or password');

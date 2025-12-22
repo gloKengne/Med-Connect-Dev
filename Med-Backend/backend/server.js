@@ -7,6 +7,7 @@ import bodyParser from "body-parser";
 import connectDb from "./config/db.js";
 import testInsert from "./routes/testInsert.js";
 import authRoutes from "./routes/auth.routes.js";
+import documentRoutes from "./routes/documentRoutes.js"
 
 const app = express();
 
@@ -16,6 +17,13 @@ app.use(bodyParser.json());
 app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
+
+// File serving
+app.use("/uploads", express.static("src/uploads"));
+
+// Routes
+app.use("/api/documents", documentRoutes);
+
 
 connectDb(); 
 

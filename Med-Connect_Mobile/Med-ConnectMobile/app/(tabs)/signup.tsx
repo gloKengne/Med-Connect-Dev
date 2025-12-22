@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import DoctorRegistrationModal from '../../components/DoctorRegistrationModal'
 
 const API_URL = 'http://localhost:5000/api/auth';
 
+type DoctorData = {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+};
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -13,6 +20,10 @@ export default function SignUpPage() {
   const [userType, setUserType] = useState('patient');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Modal state
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [pendingDoctorData, setPendingDoctorData] = useState<DoctorData | null>(null);
 
   const handleSignin = () => {
     console.log('Navigate to signin');
@@ -41,11 +52,24 @@ export default function SignUpPage() {
       return;
     }
 
+    // If user is a doctor, show the modal for additional information
+    if (userType === 'doctor') {
+      setPendingDoctorData({
+        name: fullName,
+        email: email.toLowerCase().trim(),
+        password: password,
+        role: 'doctor'
+      });
+      setShowDoctorModal(true);
+      return;
+    }
+
+    // For patients, proceed with registration
     setLoading(true);
     console.log('Sign up with:', { fullName, email, password, userType });
 
     try {
-      const role = userType === 'patient' ? 'patient' : 'doctor';
+      const role = 'patient';
 
       console.log('Sending request to:', `${API_URL}/register`);
       console.log('Request body:', {
@@ -80,12 +104,56 @@ export default function SignUpPage() {
         // Display custom error message
         setErrorMessage(data.message || data.error || 'Failed to create account');
       }
-    } catch (error) {
+    } 
+    catch (error) {
       console.error('Sign up error:', error);
       setErrorMessage('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setShowDoctorModal(false);
+    setPendingDoctorData(null);
+  };
+
+  // Handle doctor registration completion (not implemented yet in backend)
+  const handleDoctorRegistrationComplete = async (completeData: any) => {
+    console.log('Doctor registration data:', completeData);
+    
+    // TODO: Implement backend API call when ready
+    Alert.alert(
+      'Registration Not Available',
+      'Doctor registration is coming soon! The backend is not ready yet.',
+      [{ text: 'OK', onPress: handleModalClose }]
+    );
+    
+    // When backend is ready, uncomment and implement this:
+    /*
+    try {
+      const response = await fetch(`${API_URL}/register-doctor`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(completeData),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        handleModalClose();
+        router.push('/signin');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to complete registration');
+      }
+    } catch (error) {
+      console.error('Doctor registration error:', error);
+      Alert.alert('Error', 'Network error. Please try again.');
+    }
+    */
   };
 
   return (
@@ -214,6 +282,14 @@ export default function SignUpPage() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Doctor Registration Modal */}
+      <DoctorRegistrationModal
+        visible={showDoctorModal}
+        onClose={handleModalClose}
+        onComplete={handleDoctorRegistrationComplete}
+        doctorData={pendingDoctorData}
+      />
     </SafeAreaView>
   );
 }

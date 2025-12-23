@@ -98,13 +98,13 @@
         </div>
 
         <!-- Action Buttons -->
-        <button class="action-btn message-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-          Send Message
-        </button>
-        <button class="action-btn schedule-btn">
+        <button class="action-btn message-btn" (click)="openMessageModal()">
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+  Send Message
+</button>
+        <!-- <button class="action-btn schedule-btn">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
             <line x1="16" x2="16" y1="2" y2="6"/>
@@ -112,7 +112,97 @@
             <line x1="3" x2="21" y1="10" y2="10"/>
           </svg>
           Schedule Appointment
+        </button> -->
+
+        <!-- Message Modal -->
+<div class="modal-overlay" *ngIf="showMessageModal" (click)="closeMessageModal()">
+  <div class="modal-content message-modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <h3 class="modal-title">Message John Smith</h3>
+        <p class="modal-subtitle">Patient</p>
+      </div>
+      <button class="btn-close" (click)="closeMessageModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" x2="6" y1="6" y2="18"/>
+          <line x1="6" x2="18" y1="6" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="message-preview">
+        <div class="preview-message received">
+          <p>Hello Doctor, thank you for the last consultation.</p>
+          <span class="message-time">Yesterday, 3:45 PM</span>
+        </div>
+        <div class="preview-message sent">
+          <p>You're welcome! How are you feeling today?</p>
+          <span class="message-time">Yesterday, 4:02 PM</span>
+        </div>
+      </div>
+
+      <!-- Attached File Display -->
+      <div class="attached-file" *ngIf="attachedFile">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="file-icon">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <div class="file-info">
+          <span class="file-name">{{ attachedFile.name }}</span>
+          <span class="file-size">{{ formatFileSize(attachedFile.size) }}</span>
+        </div>
+        <button type="button" class="btn-remove-file" (click)="removeAttachment()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
         </button>
+      </div>
+
+      <div class="message-input-area">
+        <button class="btn-attach" (click)="triggerFileInput()" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <input 
+          type="text" 
+          placeholder="Type your message..."
+          [(ngModel)]="messageText"
+          (keyup.enter)="sendMessage()"
+          class="message-input"
+        >
+        <!-- Hidden File Input -->
+        <input 
+          type="file" 
+          #fileInput
+          class="file-input-hidden" 
+          (change)="onFileSelected($event)"
+          accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+        >
+        <button class="btn-send" (click)="sendMessage()" [disabled]="!messageText.trim() && !attachedFile">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+
+      <p class="encryption-notice">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="18" x="3" y="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        End-to-end encrypted messaging
+      </p>
+    </div>
+  </div>
+</div>
+
+
+
+
       </aside>
 
       <!-- Right Content -->

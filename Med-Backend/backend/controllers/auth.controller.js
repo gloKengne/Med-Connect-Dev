@@ -4,7 +4,15 @@ import jwt from "jsonwebtoken";
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { firstName, lastName, email, password, phone, address, userType } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Please provide all required fields" 
+      });
+    }
 
     // Check if user exists
     const exists = await User.findOne({ email });
@@ -15,10 +23,13 @@ export const register = async (req, res) => {
 
     // Create user
     const user = await User.create({
-      name,
+      firstName,
+      lastName,
       email,
       password: hashed,
-      role
+      phone,
+      address,
+      userType: userType || "patient"
     });
 
     res.json({ message: "User registered", user });
@@ -41,17 +52,37 @@ export const login = async (req, res) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: user._id, email: user.email, userType: user.userType  },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    res.json({
-      message: "Login successful",
-      token,
-      user,
+    const userResponse = {
+      userId: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      userType: user.userType,
+      isVerified: user.isVerified
+
+      };
+
+    res.status(201).json({ 
+      success: true,
+      message: "User registered successfully",
+      data: {
+        user: userResponse,
+        token
+      }
     });
   } catch (error) {
-    res.status(500).json({ error });
+    console.error("Registration error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error during registration",
+      error: error.message 
+    });
   }
-};
+  };

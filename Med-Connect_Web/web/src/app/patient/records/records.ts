@@ -22,6 +22,7 @@ interface MedicalDocument {
   styleUrl: './records.css',
 })
 export class Records implements OnInit{
+  userName: string = 'Sarah';
 
   searchQuery: string = '';
   selectedCategory: string = 'all';

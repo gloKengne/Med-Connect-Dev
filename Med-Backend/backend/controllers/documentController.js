@@ -34,3 +34,35 @@ export const getMyDocuments = async (req, res) => {
     res.status(500).json({ error: "Could not fetch documents" });
   }
 };
+
+export const getDocumentById = async (req, res) => {
+  try {
+    const doc = await Document.findById(req.params.id);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+    // Check if document belongs to user
+    if (doc.patientId.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+    res.json(doc);
+  } catch (err) {
+    res.status(500).json({ error: "Could not fetch document" });
+  }
+};
+
+export const deleteDocument = async (req, res) => {
+  try {
+    const doc = await Document.findById(req.params.id);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+    if (doc.patientId.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+    await doc.deleteOne();
+    res.json({ message: "Document deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: "Could not delete document" });
+  }
+};

@@ -11,6 +11,7 @@ import { RouterModule } from '@angular/router'
   styleUrl: './shared-header.css',
 })
 export class SharedHeader  implements OnInit{
+  doctorName: string = 'Dr. Patricia';
 
   @Input() userType: 'patient' | 'doctor' = 'patient';
   @Input() userName: string = '';

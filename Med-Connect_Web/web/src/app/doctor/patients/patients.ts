@@ -25,6 +25,7 @@ interface Patient {
   styleUrl: './patients.css',
 })
 export class Patients {
+  doctorName: string = 'Dr. Patricia';
 
   searchQuery = '';
   patients: Patient[] = [

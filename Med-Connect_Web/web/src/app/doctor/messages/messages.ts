@@ -28,6 +28,7 @@ interface Message {
   styleUrl: './messages.css',
 })
 export class Messages implements AfterViewChecked{
+  doctorName: string = 'Dr. Patricia';
 
  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('messagesArea') messagesArea!: ElementRef<HTMLDivElement>;

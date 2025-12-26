@@ -21,6 +21,8 @@ interface Appointment {
 })
 export class Schedule {
 
+  doctorName: string = 'Dr. Patricia';
+
   appointments: Appointment[] = [
     { time: '09:00 AM', patient: 'John Smith', type: 'Follow-up Checkup', duration: '30 min', status: 'Confirmed', mode: 'In-Person' },
     { time: '10:00 AM', patient: 'Sarah Johnson', type: 'Diabetes Management', duration: '20 min', status: 'Confirmed', mode: 'Teleconsult' },

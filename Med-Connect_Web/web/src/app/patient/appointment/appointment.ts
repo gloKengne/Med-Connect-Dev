@@ -24,6 +24,7 @@ interface Appointmentattributes {
   styleUrl: './appointment.css',
 })
 export class Appointment implements OnInit{
+  userName: string = 'Sarah';
 
 activeTab: 'upcoming' | 'past' = 'upcoming';
   

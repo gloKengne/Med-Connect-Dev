@@ -32,6 +32,8 @@ interface CalendarDay {
 })
 export class FindDoctors implements OnInit {
 
+  userName: string = 'Sarah';
+
  searchQuery: string = '';
   selectedSpecialty: string = 'all';
   

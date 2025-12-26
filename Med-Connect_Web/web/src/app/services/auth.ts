@@ -9,6 +9,8 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  phone?: string;
+  address?: string;
   userType: 'patient' | 'doctor';
   isVerified: boolean;
   token?: string;
@@ -28,7 +30,7 @@ export interface AuthResponse {
 })
 export class Auth {
 
-   private apiUrl = 'http://localhost:3000/api/auth'; // Update with your API URL
+   private apiUrl = 'http://localhost:5000/api/auth'; 
   private currentUserSubject: BehaviorSubject<User | null>;
   public currentUser: Observable<User | null>;
 
@@ -59,6 +61,8 @@ export class Auth {
     fullName: string;
     email: string;
     password: string;
+    phone?: string;
+    address?: string;
     userType: 'patient' | 'doctor';
   }): Observable<AuthResponse> {
     const [firstName, ...lastNameParts] = userData.fullName.split(' ');
@@ -69,6 +73,8 @@ export class Auth {
       lastName,
       email: userData.email,
       password: userData.password,
+      phone: userData.phone,
+      address: userData.address,
       userType: userData.userType
     };
 

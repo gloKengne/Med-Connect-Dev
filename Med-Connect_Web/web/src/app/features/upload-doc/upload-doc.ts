@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ReactiveFormsModule } from '@angular/forms';
 import { SharedHeader } from '../shared-header/shared-header';
+import { UploadDoc as UploadDocService} from '../../services/upload-doc'
 
 @Component({
   selector: 'app-upload-doc',
@@ -23,30 +24,58 @@ uploadForm: FormGroup;
 
   categories = [
     { value: '', label: 'Select Category', disabled: true },
-    { value: 'lab', label: 'Lab Results', color: '#4A90E2' },
+    { value: 'lab_results', label: 'Lab Results', color: '#4A90E2' },
     { value: 'imaging', label: 'Imaging (X-Ray, MRI, CT)', color: '#5FB3B3' },
     { value: 'prescription', label: 'Prescription', color: '#FFA07A' },
-    { value: 'clinical', label: 'Clinical Notes', color: '#9B59B6' },
-    { value: 'vaccination', label: 'Vaccination Record', color: '#28A745' },
-    { value: 'other', label: 'Other', color: '#6C757D' }
+    { value: 'clinical_notes', label: 'Clinical Notes', color: '#9B59B6' },
+    { value: 'vaccination_records', label: 'Vaccination Record', color: '#28A745' },
+    { value: 'others', label: 'Other', color: '#6C757D' }
   ];
 
   constructor(
     private formBuilder: FormBuilder,
-    private router: Router
+    private router: Router,
+    private uploadDocService: UploadDocService
   ) {
     this.uploadForm = this.formBuilder.group({
-      title: ['', [Validators.required, Validators.minLength(3)]],
+      docTitle: ['', [Validators.required, Validators.minLength(3)]],
       category: ['', Validators.required],
-      documentDate: ['', Validators.required],
+      docDate: ['', Validators.required],
       description: ['', Validators.maxLength(500)]
     });
   }
 
+  onSubmit(): void {
+  if (this.uploadForm.valid && this.selectedFile) {
+    this.uploading = true;
+    
+    const formData = new FormData();
+    formData.append('file', this.selectedFile);
+    formData.append('docTitle', this.uploadForm.value.docTitle);
+    formData.append('docDate', this.uploadForm.value.docDate);
+    formData.append('category', this.uploadForm.value.category);
+    if (this.uploadForm.value.description) {
+      formData.append('description', this.uploadForm.value.description);
+    }
+
+    this.uploadDocService.uploadDocument(formData).subscribe({
+      next: (response) => {
+        console.log('Upload successful:', response);
+        this.router.navigate(['medical-records']);
+      },
+      error: (error) => {
+        console.error('Upload failed:', error);
+        this.errorMessage = 'Upload failed. Please try again.';
+        this.uploading = false;
+      }
+    });
+  }
+}
+
   ngOnInit(): void {}
 
   get title() {
-    return this.uploadForm.get('title');
+    return this.uploadForm.get('docTitle');
   }
 
   get category() {
@@ -54,7 +83,7 @@ uploadForm: FormGroup;
   }
 
   get documentDate() {
-    return this.uploadForm.get('documentDate');
+    return this.uploadForm.get('docDate');
   }
 
   get description() {

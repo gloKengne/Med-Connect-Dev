@@ -87,14 +87,14 @@
           <input
             type="text"
             id="title"
-            formControlName="title"
+            formControlName="docTitle"
             class="form-input"
-            [class.error]="title?.invalid && title?.touched"
+            [class.error]="docTitle?.invalid && docTitle?.touched"
             placeholder="e.g., Blood Test Results"
           >
-          <div class="error-message" *ngIf="title?.invalid && title?.touched">
-            <span *ngIf="title?.errors?.['required']">Title is required</span>
-            <span *ngIf="title?.errors?.['minlength']">Title must be at least 3 characters</span>
+          <div class="error-message" *ngIf="docTitle?.invalid && docTitle?.touched">
+            <span *ngIf="docTitle?.errors?.['required']">Title is required</span>
+            <span *ngIf="docTitle?.errors?.['minlength']">Title must be at least 3 characters</span>
           </div>
         </div>
 
@@ -122,11 +122,11 @@
           <input
             type="date"
             id="documentDate"
-            formControlName="documentDate"
+            formControlName="docDate"
             class="form-input"
-            [class.error]="documentDate?.invalid && documentDate?.touched"
+            [class.error]="docDate?.invalid && docDate?.touched"
           >
-          <div class="error-message" *ngIf="documentDate?.invalid && documentDate?.touched">
+          <div class="error-message" *ngIf="docDate?.invalid && docDate?.touched">
             Document date is required
           </div>
         </div>
@@ -150,9 +150,9 @@
       <!-- Upload Progress -->
       <div class="upload-progress" *ngIf="uploading">
         <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="uploadProgress"></div>
+          <div class="progress-fill"></div>
         </div>
-        <p class="progress-text">Uploading... {{ uploadProgress }}%</p>
+        <p class="progress-text">Uploading...</p>
       </div>
 
       <!-- Form Actions -->

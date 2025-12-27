@@ -1,8 +1,9 @@
 import express from "express";
 import auth from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/upload.js";
-import { uploadDocument, getMyDocuments, getDocumentById, 
+import { uploadDocument, getMyDocuments, getDocumentById,
   deleteDocument } from "../controllers/documentController.js";
+
 
 const router = express.Router();
 

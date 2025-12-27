@@ -27,8 +27,24 @@ export class SharedHeader  implements OnInit{
   constructor(private router: Router) {}
 
   ngOnInit(): void {
-    this.loadUserRoles();
+    this.loadUserFromAuth();
   }
+
+  loadUserFromAuth(): void {
+  const storedUser = localStorage.getItem('currentUser');
+  if (storedUser) {
+    const user = JSON.parse(storedUser);
+    // Set userName from the logged-in user
+    this.userName = `${user.firstName} ${user.lastName}`;
+    
+    // For now, set roles based on userType
+    // You can expand this later if users can have multiple roles
+    this.userRoles = {
+      isPatient: user.userType === 'patient',
+      isDoctor: user.userType === 'doctor'
+    };
+  }
+}
 
   loadUserRoles(): void {
     const storedProfile = localStorage.getItem('userProfile');

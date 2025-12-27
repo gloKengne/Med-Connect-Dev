@@ -14,21 +14,19 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-app.get("/", (req, res) => {
-  res.send("Backend is running!");
-});
+connectDb(); 
 
 // File serving
 app.use("/uploads", express.static("src/uploads"));
 
 // Routes
-app.use("/api/documents", documentRoutes);
-
-
-connectDb(); 
-
 app.use("/api/auth", authRoutes);
+app.use("/api/documents", documentRoutes);
 app.use("/api/test", testInsert);
+
+app.get("/", (req, res) => {
+  res.send("Backend is running!");
+});
 
 const PORT = process.env.PORT || 5000;
 

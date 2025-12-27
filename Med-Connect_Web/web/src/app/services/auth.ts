@@ -58,24 +58,23 @@ export class Auth {
   }
 
   signUp(userData: {
-    fullName: string;
+    firstName: string;
+    lastName: string;
     email: string;
     password: string;
     phone?: string;
     address?: string;
     userType: 'patient' | 'doctor';
   }): Observable<AuthResponse> {
-    const [firstName, ...lastNameParts] = userData.fullName.split(' ');
-    const lastName = lastNameParts.join(' ');
-
+  
     const payload = {
-      firstName,
-      lastName,
-      email: userData.email,
-      password: userData.password,
-      phone: userData.phone,
-      address: userData.address,
-      userType: userData.userType
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    email: userData.email,
+    password: userData.password,
+    phone: userData.phone,
+    address: userData.address,
+    userType: userData.userType
     };
 
     return this.http.post<AuthResponse>(`${this.apiUrl}/signup`, payload)
@@ -97,7 +96,7 @@ export class Auth {
     email: string;
     password: string;
   }): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/signin`, credentials)
+    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials)
       .pipe(
         map(response => {
           if (response.success && response.data) {

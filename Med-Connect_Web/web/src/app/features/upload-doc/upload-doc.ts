@@ -46,35 +46,72 @@ uploadForm: FormGroup;
   }
 
   onSubmit(): void {
-  if (this.uploadForm.valid && this.selectedFile) {
-    this.uploading = true;
-    
-    const formData = new FormData();
-    formData.append('file', this.selectedFile);
-    formData.append('docTitle', this.uploadForm.value.docTitle);
-    formData.append('docDate', this.uploadForm.value.docDate);
-    formData.append('category', this.uploadForm.value.category);
-    if (this.uploadForm.value.description) {
-      formData.append('description', this.uploadForm.value.description);
+
+// Validate form and file
+    if (!this.selectedFile) {
+      this.errorMessage = 'Please select a file to upload.';
+      return;
     }
 
-    this.uploadDocService.uploadDocument(formData).subscribe({
-      next: (response) => {
-        console.log('Upload successful:', response);
-        this.router.navigate(['medical-records']);
-      },
-      error: (error) => {
-        console.error('Upload failed:', error);
-        this.errorMessage = 'Upload failed. Please try again.';
-        this.uploading = false;
+    if (this.uploadForm.valid && this.selectedFile) {
+      this.uploading = true;
+      this.errorMessage = '';
+
+      const formData = new FormData();
+      formData.append('file', this.selectedFile);
+      formData.append('docTitle', this.uploadForm.value.docTitle);
+      formData.append('docDate', this.uploadForm.value.docDate);
+      formData.append('category', this.uploadForm.value.category);
+      
+      if (this.uploadForm.value.description) {
+        formData.append('description', this.uploadForm.value.description);
       }
+
+      // Debug log
+    console.log('Submitting form with:', {
+      docTitle: this.uploadForm.value.docTitle,
+      category: this.uploadForm.value.category,
+      docDate: this.uploadForm.value.docDate,
+      fileName: this.selectedFile.name,
+      fileSize: this.selectedFile.size
     });
+
+      this.uploadDocService.uploadDocument(formData).subscribe({
+        next: (response) => {
+          console.log('Upload successful:', response);
+          this.uploading = false;
+          this.router.navigate(['/medical-records']);
+        },
+        error: (error) => {
+          console.error('Upload failed:', error);
+          this.errorMessage = error.error?.error || 'Upload failed. Please try again.';
+          this.uploading = false;
+        }
+      });
+    } else {
+      // Mark all fields as touched to show validation errors
+      Object.keys(this.uploadForm.controls).forEach(key => {
+        this.uploadForm.get(key)?.markAsTouched();
+      });
+
+      if (!this.selectedFile) {
+        this.errorMessage = 'Please select a file to upload.';
+      }
+    }
   }
-}
 
-  ngOnInit(): void {}
 
-  get title() {
+  ngOnInit(): void {
+ // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('No authentication token found');
+      this.router.navigate(['/login']);
+    }
+
+  }
+
+  get docTitle() {
     return this.uploadForm.get('docTitle');
   }
 
@@ -82,7 +119,7 @@ uploadForm: FormGroup;
     return this.uploadForm.get('category');
   }
 
-  get documentDate() {
+  get docDate() {
     return this.uploadForm.get('docDate');
   }
 
@@ -154,36 +191,6 @@ uploadForm: FormGroup;
     this.errorMessage = '';
   }
 
-  onSubmit(): void {
-    if (this.uploadForm.valid && this.selectedFile) {
-      this.uploading = true;
-      this.uploadProgress = 0;
-
-      // Simulate upload progress
-      const interval = setInterval(() => {
-        this.uploadProgress += 10;
-        if (this.uploadProgress >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            this.uploading = false;
-            // TODO: Implement actual upload to server
-            console.log('Form Data:', this.uploadForm.value);
-            console.log('File:', this.selectedFile);
-            this.router.navigate(['medical-records']);
-          }, 500);
-        }
-      }, 200);
-    } else {
-      // Mark all fields as touched to show validation errors
-      Object.keys(this.uploadForm.controls).forEach(key => {
-        this.uploadForm.get(key)?.markAsTouched();
-      });
-
-      if (!this.selectedFile) {
-        this.errorMessage = 'Please select a file to upload.';
-      }
-    }
-  }
 
   cancel(): void {
     this.router.navigate(['medical-records']);

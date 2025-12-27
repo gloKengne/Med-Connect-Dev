@@ -37,7 +37,7 @@
             </svg>
             Uploaded: {{ document.uploadedDate }}
           </span>
-          <span class="meta-item">
+          <span class="meta-item" *ngIf="document.fileSize !== 'N/A'">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="meta-icon">
               <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
               <polyline points="14 2 14 8 20 8"/>
@@ -78,7 +78,7 @@
 
         <!-- PDF Preview -->
         <div class="pdf-viewer" *ngIf="document.fileType === 'application/pdf'">
-          <iframe [src]="document.fileUrl" class="pdf-frame" frameborder="0"></iframe>
+          <iframe [src]="document.safeFileUrl" class="pdf-frame" frameborder="0"></iframe>
         </div>
 
         <!-- Download Prompt for unsupported types -->
@@ -91,6 +91,7 @@
           </div>
           <h3 class="prompt-title">Preview not available</h3>
           <p class="prompt-text">This file type cannot be previewed in the browser.</p>
+          <button class="btn-primary" (click)="downloadDocument()">Download File</button>
         </div>
       </div>
     </section>

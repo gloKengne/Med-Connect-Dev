@@ -5,7 +5,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 // Public routes
-router.post("/register", register);
+router.post("/signup", register);
 router.post("/login", login);
 
 // Protected route example

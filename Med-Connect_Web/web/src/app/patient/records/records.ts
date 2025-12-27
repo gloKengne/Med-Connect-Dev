@@ -3,7 +3,7 @@ import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SharedHeader } from '../../features/shared-header/shared-header';
-
+import { UploadDoc, DocumentResponse } from '../../services/upload-doc';
 
 interface MedicalDocument {
   id: string;
@@ -23,75 +23,77 @@ interface MedicalDocument {
 })
 export class Records implements OnInit{
   userName: string = 'Sarah';
-
   searchQuery: string = '';
   selectedCategory: string = 'all';
+  loading: boolean = true;
   
-  categories = [
+   categories = [
     { value: 'all', label: 'All Categories' },
-    { value: 'lab', label: 'Lab Results', color: '#4A90E2' },
+    { value: 'lab_results', label: 'Lab Results', color: '#4A90E2' },
     { value: 'imaging', label: 'Imaging', color: '#5FB3B3' },
     { value: 'prescription', label: 'Prescription', color: '#FFA07A' },
-    { value: 'clinical', label: 'Clinical Notes', color: '#9B59B6' }
+    { value: 'clinical_notes', label: 'Clinical Notes', color: '#9B59B6' },
+    { value: 'vaccination_records', label: 'Vaccination Records', color: '#28A745' },
+    { value: 'others', label: 'Other', color: '#6C757D' }
   ];
 
-  allDocuments: MedicalDocument[] = [
-    {
-      id: '1',
-      title: 'Complete Blood Count Results',
-      category: 'Lab Results',
-      categoryColor: '#4A90E2',
-      date: 'Nov 8, 2025',
-      fileSize: '245 KB'
-    },
-    {
-      id: '2',
-      title: 'Chest X-Ray - Frontal View',
-      category: 'Imaging',
-      categoryColor: '#5FB3B3',
-      date: 'Nov 5, 2025',
-      fileSize: '1.2 MB'
-    },
-    {
-      id: '3',
-      title: 'Amoxicillin 500mg Prescription',
-      category: 'Prescription',
-      categoryColor: '#FFA07A',
-      date: 'Nov 3, 2025',
-      fileSize: '180 KB'
-    },
-    {
-      id: '4',
-      title: 'Annual Physical Checkup Notes',
-      category: 'Clinical Notes',
-      categoryColor: '#9B59B6',
-      date: 'Oct 30, 2025',
-      fileSize: '320 KB'
-    },
-    {
-      id: '5',
-      title: 'Lipid Panel Test Results',
-      category: 'Lab Results',
-      categoryColor: '#4A90E2',
-      date: 'Oct 25, 2025',
-      fileSize: '198 KB'
-    },
-    {
-      id: '6',
-      title: 'MRI Scan - Brain',
-      category: 'Imaging',
-      categoryColor: '#5FB3B3',
-      date: 'Oct 20, 2025',
-      fileSize: '3.5 MB'
-    }
-  ];
+  // Category label mapping
+  private categoryLabels: { [key: string]: string } = {
+    'lab_results': 'Lab Results',
+    'imaging': 'Imaging',
+    'prescription': 'Prescription',
+    'clinical_notes': 'Clinical Notes',
+    'vaccination_records': 'Vaccination Records',
+    'others': 'Other'
+  };
 
+ 
+  allDocuments: MedicalDocument[] = [];
   filteredDocuments: MedicalDocument[] = [];
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private uploadDocService: UploadDoc
+  ) {}
 
   ngOnInit(): void {
-    this.filteredDocuments = [...this.allDocuments];
+    this.loadDocuments();
+  }
+
+  loadDocuments(): void {
+    this.loading = true;
+    this.uploadDocService.getMyDocuments().subscribe({
+      next: (documents: DocumentResponse[]) => {
+        this.allDocuments = documents.map(doc => this.mapDocumentResponse(doc));
+        this.filteredDocuments = [...this.allDocuments];
+        this.loading = false;
+      },
+      error: (error) => {
+        console.error('Error loading documents:', error);
+        this.loading = false;
+        // Show empty state or error message
+        this.allDocuments = [];
+        this.filteredDocuments = [];
+      }
+    });
+  }
+
+  private mapDocumentResponse(doc: DocumentResponse): MedicalDocument {
+    const category = this.categories.find(c => c.value === doc.category);
+    const docDate = new Date(doc.docDate);
+    
+    return {
+      id: doc._id,
+      title: doc.docTitle,
+      category: this.categoryLabels[doc.category] || doc.category,
+      categoryColor: category?.color || '#6C757D',
+      date: docDate.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      }),
+      fileSize: 'N/A' // Backend doesn't provide file size
+    };
   }
 
   onSearch(): void {

@@ -13,19 +13,34 @@
 
     <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" class="auth-form">
       <div class="form-group">
-        <label for="fullName" class="form-label">Full Name</label>
+        <label for="firstName" class="form-label">Firstname</label>
         <input
           type="text"
-          id="fullName"
-          formControlName="fullName"
+          id="firstName"
+          formControlName="firstName"
           class="form-input"
-          [class.error]="fullName?.invalid && fullName?.touched"
-          placeholder="John Doe"
+          [class.error]="firstName?.invalid && firstName?.touched"
+          placeholder="John"
         >
-        <div class="error-message" *ngIf="fullName?.invalid && fullName?.touched">
-          <span *ngIf="fullName?.errors?.['required']">Full name is required</span>
-          <span *ngIf="fullName?.errors?.['minlength']">Name must be at least 3 characters</span>
+
+        <label for="lastName" class="form-label">LastName</label>
+        <input
+          type="text"
+          id="lastName"
+          formControlName="lastName"
+          class="form-input"
+          [class.error]="lastName?.invalid && lastName?.touched"
+          placeholder="Doe"
+        >
+        <div class="error-message" *ngIf="firstName?.invalid && firstName?.touched">
+          <span *ngIf="firstName?.errors?.['required']">FirstName is required</span>
+          <span *ngIf="firstName?.errors?.['minlength']">Name must be at least 3 characters</span>
         </div>
+        <div class="error-message" *ngIf="lastName?.invalid && lastName?.touched">
+          <span *ngIf="lastName?.errors?.['required']">LastName is required</span>
+          <span *ngIf="lastName?.errors?.['minlength']">Name must be at least 3 characters</span>
+        </div>
+
       </div>
 
       <!-- Phone Field -->

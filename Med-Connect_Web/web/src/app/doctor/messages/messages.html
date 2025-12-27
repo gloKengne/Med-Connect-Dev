@@ -36,7 +36,7 @@
           <div 
             class="conversation-item" 
             *ngFor="let conv of conversations" 
-            [class.active]="conv.id === selectedConversation?.id"
+            [class.active]="conv.id === selectedConversation.id"
             (click)="selectConversation(conv)"
           >
             <div class="conv-avatar" [class.online]="conv.online">
@@ -69,7 +69,7 @@
               </svg>
             </div>
             <div class="patient-info-chat">
-              <strong>{{ selectedConversation?.name || 'Emily Davis' }}</strong>
+              <strong>{{ selectedConversation.name || 'Emily Davis' }}</strong>
               <span class="online-status">
                 <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="#10b981">
                   <circle cx="12" cy="12" r="10"/>

@@ -3,6 +3,7 @@ import { Router} from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { Auth } from '../../services/auth';
 
 @Component({
   selector: 'app-login',
@@ -19,7 +20,8 @@ export class Login {
 
   constructor(
     private formBuilder: FormBuilder,
-    private router: Router
+    private router: Router,
+    private authService: Auth
   ) {
     this.signinForm = this.formBuilder.group({
       email: ['', [Validators.required, Validators.email]],
@@ -40,15 +42,30 @@ export class Login {
       this.loading = true;
       this.errorMessage = '';
       
-      // TODO: Implement your authentication service call here
-      console.log('Sign in with:', this.signinForm.value);
+      const credentials = {
+        email: this.signinForm.value.email,
+        password: this.signinForm.value.password
+      };
       
-      // Simulated API call
-      setTimeout(() => {
-        this.loading = false;
-        // Navigate to dashboard on success
-        // this.router.navigate(['/dashboard']);
-      }, 1500);
+      this.authService.signIn(credentials).subscribe({
+        next: (response) => {
+          this.loading = false;
+          if (response.success) {
+            // Redirect based on user type
+            const userType = this.authService.currentUserValue?.userType;
+            if (userType === 'patient') {
+              this.router.navigate(['/patient-dashboard']);
+            } else if (userType === 'doctor') {
+              this.router.navigate(['/doctor-dashboard']);
+            }
+          }
+        },
+        error: (error) => {
+          this.loading = false;
+          this.errorMessage = error.message || 'Login failed. Please try again.';
+          console.error('Login error:', error);
+        }
+      });
     } else {
       Object.keys(this.signinForm.controls).forEach(key => {
         this.signinForm.get(key)?.markAsTouched();

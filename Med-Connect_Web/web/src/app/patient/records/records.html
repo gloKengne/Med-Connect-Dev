@@ -98,8 +98,14 @@
         </div>
       </section>
 
+      <!-- Loading State -->
+      <div class="loading-container" *ngIf="loading">
+        <div class="spinner"></div>
+        <p>Loading your documents...</p>
+      </div>
+
       <!-- Documents Grid -->
-      <section class="documents-grid">
+      <section class="documents-grid" *ngIf="!loading">
         <div 
           class="document-card" 
           *ngFor="let doc of filteredDocuments"
@@ -126,7 +132,7 @@
                   </svg>
                   {{ doc.date }}
                 </span>
-                <span class="doc-size">{{ doc.fileSize }}</span>
+                <span class="doc-size" *ngIf="doc.fileSize !== 'N/A'">{{ doc.fileSize }}</span>
               </div>
             </div>
           </div>
@@ -134,13 +140,26 @@
       </section>
 
       <!-- Empty State -->
-      <div class="empty-state" *ngIf="filteredDocuments.length === 0">
+      <div class="empty-state" *ngIf="!loading && filteredDocuments.length === 0">
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" class="empty-icon">
           <circle cx="11" cy="11" r="8"/>
           <path d="m21 21-4.35-4.35"/>
         </svg>
         <h3 class="empty-title">No documents found</h3>
-        <p class="empty-text">Try adjusting your search or filter criteria</p>
+        <p class="empty-text" *ngIf="searchQuery || selectedCategory !== 'all'">
+          Try adjusting your search or filter criteria
+        </p>
+        <p class="empty-text" *ngIf="!searchQuery && selectedCategory === 'all'">
+          Upload your first medical document to get started
+        </p>
+        <button class="btn-upload" (click)="uploadDocument()" *ngIf="!searchQuery && selectedCategory === 'all'">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" x2="12" y1="3" y2="15"/>
+          </svg>
+          Upload Document
+        </button>
       </div>
     </div>
   </main>
@@ -152,6 +171,10 @@
   50% { transform: translateY(-8px); }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .float-icon {
   animation: float 3s ease-in-out infinite;
 }
@@ -159,4 +182,27 @@
 .float-icon:nth-child(2) { animation-delay: 0.5s; }
 .float-icon:nth-child(3) { animation-delay: 1s; }
 .float-icon:nth-child(4) { animation-delay: 1.5s; }
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #4ECDC4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-container p {
+  color: #64748b;
+  font-size: 0.95rem;
+}
 </style>

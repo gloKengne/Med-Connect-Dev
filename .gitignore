@@ -1,0 +1,18 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Angular
+.angular/
+dist/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+web-build/
+
+# General
+.env
+.cache/
+.vite/

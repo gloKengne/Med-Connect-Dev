@@ -12,6 +12,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { router, useRouter } from 'expo-router';
 
 interface DoctorRegistrationModalProps {
   visible: boolean;
@@ -107,43 +108,51 @@ export default function DoctorRegistrationModal({
   };
 
   const handleFinish = async () => {
-    // Validate step 2
-    if (selectedDays.length === 0 || !startTime || !endTime) {
-      alert('Please select availability days and hours');
-      return;
-    }
+  // Validate step 2
+  if (selectedDays.length === 0 || !startTime || !endTime) {
+    alert('Please select availability days and hours');
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    const completeData = {
-      ...doctorData,
-      specialty,
-      phoneNumber: `${COUNTRY_CODE}${phoneNumber}`,
-      hospitalAffiliation,
-      yearsOfExperience,
-      consultationFee,
-      availability: {
-        days: selectedDays,
-        startTime,
-        endTime
-      }
-    };
-
-    try {
-      // Call the completion handler
-      await onComplete(completeData);
-    } catch (error) {
-      console.error('Error completing registration:', error);
-      alert('Failed to complete registration. Please try again.');
-    } finally {
-      setLoading(false);
+  const completeData = {
+    ...doctorData,
+    specialty,
+    phoneNumber: `${COUNTRY_CODE}${phoneNumber}`,
+    hospitalAffiliation,
+    yearsOfExperience,
+    consultationFee,
+    availability: {
+      days: selectedDays,
+      startTime,
+      endTime
     }
   };
+
+  try {
+    // Call the completion handler
+    await onComplete(completeData);
+    
+    // Close the modal after successful completion
+    onClose();
+  } catch (error) {
+    console.error('Error completing registration:', error);
+    alert('Failed to complete registration. Please try again.');
+    setLoading(false); // Only set loading to false if there's an error
+  }
+  // Don't set loading to false here if successful, as the modal will close
+};
 
   const handleBack = () => {
     if (currentStep === 2) {
       setCurrentStep(1);
     }
+  };
+
+  // Close the Modal
+  const handleClose = () => {
+    onClose();
   };
 
   return (

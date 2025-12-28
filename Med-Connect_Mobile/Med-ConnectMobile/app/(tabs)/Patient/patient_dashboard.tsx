@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 export default function PatientDashboard() {
   const documents = [
@@ -32,7 +33,7 @@ export default function PatientDashboard() {
           <TouchableOpacity style={styles.navItemActive}>
             <Text style={styles.navTextActive}>Dashboard</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/Patient/records')} style={styles.navItem}>
             <Text style={styles.navText}>My Records</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem}>

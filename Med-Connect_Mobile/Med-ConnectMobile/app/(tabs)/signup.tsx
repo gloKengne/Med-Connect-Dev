@@ -117,6 +117,7 @@ export default function SignUpPage() {
   const handleModalClose = () => {
     setShowDoctorModal(false);
     setPendingDoctorData(null);
+    router.push('/signin');
   };
 
   // Handle doctor registration completion (not implemented yet in backend)

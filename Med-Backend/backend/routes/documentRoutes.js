@@ -2,8 +2,7 @@ import express from "express";
 import auth from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/upload.js";
 import { uploadDocument, getMyDocuments, getDocumentById, 
-  deleteDocument,
-  updateDocument } from "../controllers/documentController.js";
+  deleteDocument } from "../controllers/documentController.js";
 
 const router = express.Router();
 
@@ -18,7 +17,8 @@ router.get("/my-documents", auth, getMyDocuments);
 router.get("/:id", auth, getDocumentById);
 
 // Update a document (metadata only, not file)
-router.put("/:id", auth, updateDocument);
+// TODO: Implement updateDocument controller function before uncommenting
+// router.put("/:id", auth, updateDocument);
 
 // Delete a document
 router.delete("/:id", auth, deleteDocument);

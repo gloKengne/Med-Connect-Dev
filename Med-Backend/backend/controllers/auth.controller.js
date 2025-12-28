@@ -6,6 +6,8 @@ export const register = async (req, res) => {
   try {
     const { firstName, lastName, email, password, phone, address, userType } = req.body;
 
+    console.log('📝 Registration attempt:', { email, userType });
+
     // Validate required fields
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({ 
@@ -23,19 +25,18 @@ export const register = async (req, res) => {
       });
     }
 
-    // Hash password
-    const hashed = await bcrypt.hash(password, 10);
-
-    // Create user
+    // Create user - PASSWORD WILL BE HASHED BY THE MODEL'S PRE-SAVE HOOK
     const user = await User.create({
       firstName,
       lastName,
       email,
-      password: hashed,
+      password, // Don't hash here - let the model do it
       phone,
       address,
       userType: userType || "patient"
     });
+
+    console.log('✅ User created:', user._id);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -65,7 +66,7 @@ export const register = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error("❌ Registration error:", error);
     res.status(500).json({ 
       success: false,
       message: "Server error during registration",
@@ -78,21 +79,39 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
-    if (!user) {
+    console.log('🔐 Login attempt:', { email });
+
+    // Validate input
+    if (!email || !password) {
       return res.status(400).json({ 
         success: false,
-        message: "Invalid email" 
+        message: "Please provide email and password" 
       });
     }
 
-    // Compare password
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
+    // Find user - INCLUDE password field for comparison
+    const user = await User.findOne({ email }).select('+password');
+    
+    if (!user) {
+      console.log('❌ User not found:', email);
       return res.status(400).json({ 
         success: false,
-        message: "Wrong password" 
+        message: "Invalid email or password" 
+      });
+    }
+
+    console.log('👤 User found:', user._id);
+
+    // Compare password using the model's method
+    const isMatch = await user.matchPassword(password);
+    
+    console.log('🔑 Password match:', isMatch);
+
+    if (!isMatch) {
+      console.log('❌ Password mismatch for:', email);
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid email or password" 
       });
     }
 
@@ -114,6 +133,8 @@ export const login = async (req, res) => {
       isVerified: user.isVerified
     };
 
+    console.log('✅ Login successful for:', email);
+
     res.status(200).json({ 
       success: true,
       message: "Login successful",
@@ -123,7 +144,7 @@ export const login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("❌ Login error:", error);
     res.status(500).json({ 
       success: false,
       message: "Server error during login",

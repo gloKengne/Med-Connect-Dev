@@ -2,15 +2,25 @@ import express from "express";
 import {
   requestConnection,
   respondToConnection,
-  getDoctorConnections
+  getDoctorConnections,
+  getPatientConnections,
+  checkConnection,
+  revokeConnection
 } from "../controllers/connection.controller.js";
-import { protect } from "../middlewares/auth.middleware.js";
-import { authorize } from "../middlewares/role.middleware.js";
+import authMiddle from "../middleware/authMiddle.js";
 
 const router = express.Router();
 
-router.post("/", protect, authorize("patient"), requestConnection);
-router.patch("/:id/respond", protect, authorize("doctor"), respondToConnection);
-router.get("/doctor", protect, authorize("doctor"), getDoctorConnections);
+// Patient routes
+router.post("/request", authMiddle, requestConnection);
+router.get("/patient", authMiddle, getPatientConnections);
+router.get("/check/:doctorId", authMiddle, checkConnection);
+
+// Doctor routes
+router.patch("/:id/respond", authMiddle, respondToConnection);
+router.get("/doctor", authMiddle, getDoctorConnections);
+
+// Common routes
+router.delete("/:id/revoke", authMiddle, revokeConnection);
 
 export default router;

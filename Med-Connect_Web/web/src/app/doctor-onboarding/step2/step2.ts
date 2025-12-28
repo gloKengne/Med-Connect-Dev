@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { OnboardingService } from '../../services/onboarding';
 
 @Component({
   selector: 'app-step2',
@@ -17,10 +18,26 @@ export class Step2 {
     Wednesday: '9:00 AM - 5:00 PM',
     Thursday: '9:00 AM - 5:00 PM',
     Friday: '9:00 AM - 5:00 PM',
-    Saturday: '9:00 AM - 5:00 PM',
-    Sunday: '9:00 AM - 5:00 PM'
+    Saturday: 'Closed',
+    Sunday: 'Closed'
   };
 
   days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  constructor(private onboardingService: OnboardingService) {}
+
+  close() {
+    this.onboardingService.close();
+  }
+
+  back() {
+    this.onboardingService.previousStep();
+  }
+
+  next() {
+    this.onboardingService.saveStep2Data({
+      availability: this.hours
+    });
+    this.onboardingService.nextStep();
+  }
 }

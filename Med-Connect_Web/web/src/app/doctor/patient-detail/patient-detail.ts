@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import {  Router } from '@angular/router';
 import { SharedHeader } from '../../features/shared-header/shared-header';
 import { FormsModule } from '@angular/forms';
+import { PatientProfileService, PatientProfile } from '../../services/patient-profile';
 
 @Component({
   selector: 'app-patient-detail',
@@ -15,8 +16,9 @@ import { FormsModule } from '@angular/forms';
 export class PatientDetail implements OnInit {
   activeTab: string = 'vitals';
   patientId!: string;
+  patient: PatientProfile | null = null;
+  loading: boolean = true;
 
-  // ✅ ADD THESE PROPERTIES
   showMessageModal: boolean = false;
   messageText: string = '';
   attachedFile: File | null = null;
@@ -26,12 +28,65 @@ export class PatientDetail implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private patientProfileService: PatientProfileService
   ) {}
 
   ngOnInit() {
     this.patientId = this.route.snapshot.params['id'];
     console.log('Patient ID:', this.patientId);
+    this.loadPatientData();
+  }
+
+  loadPatientData(): void {
+    this.loading = true;
+    this.patientProfileService.getPatientById(this.patientId).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.patient = response.patient;
+          console.log('Patient data loaded:', this.patient);
+        }
+        this.loading = false;
+      },
+      error: (error) => {
+        console.error('Error loading patient data:', error);
+        this.loading = false;
+        alert('Failed to load patient data');
+      }
+    });
+  }
+
+   get patientName(): string {
+    return this.patient ? `${this.patient.firstName} ${this.patient.lastName}` : 'Loading...';
+  }
+
+  get patientAge(): number {
+    if (!this.patient?.dateOfBirth) return 0;
+    const today = new Date();
+    const birthDate = new Date(this.patient.dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  get hasAllergies(): boolean {
+    return !!(this.patient?.allergies && this.patient.allergies.length > 0);
+  }
+
+  get hasMedications(): boolean {
+    return !!(this.patient?.currentMedications && this.patient.currentMedications.length > 0);
+  }
+
+  formatDate(dateString: string | undefined): string {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
   }
 
   setTab(tab: string) {

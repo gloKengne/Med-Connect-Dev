@@ -3,17 +3,12 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { SharedHeader } from '../../features/shared-header/shared-header';
+import { DoctorService, Doctor } from '../../services/doctor';
+import { ConnectionService } from '../../services/connection';
 
-interface Doctor {
-  id: string;
-  name: string;
-  specialty: string;
-  rating: number;
-  reviewCount: number;
-  hospital: string;
-  availableToday: boolean;
+interface DoctorDisplay extends Doctor {
   isConnected: boolean;
-  imageUrl: string;
+  isPending: boolean;
 }
 
 interface CalendarDay {
@@ -32,9 +27,8 @@ interface CalendarDay {
 })
 export class FindDoctors implements OnInit {
 
-  userName: string = 'Sarah';
-
- searchQuery: string = '';
+  userName: string = '';
+  searchQuery: string = '';
   selectedSpecialty: string = 'all';
   
   specialties = [
@@ -47,81 +41,14 @@ export class FindDoctors implements OnInit {
     { value: 'neurology', label: 'Neurology' }
   ];
 
-  allDoctors: Doctor[] = [
-    {
-      id: '1',
-      name: 'Dr. Emily Chen',
-      specialty: 'Cardiologist',
-      rating: 4.9,
-      reviewCount: 127,
-      hospital: 'City Hospital',
-      availableToday: true,
-      isConnected: true,
-      imageUrl: '/assets/doctors/emily-chen.jpg'
-    },
-    {
-      id: '2',
-      name: 'Dr. Michael Rodriguez',
-      specialty: 'General Practitioner',
-      rating: 4.8,
-      reviewCount: 89,
-      hospital: 'Wellness Clinic',
-      availableToday: true,
-      isConnected: false,
-      imageUrl: '/assets/doctors/michael-rodriguez.jpg'
-    },
-    {
-      id: '3',
-      name: 'Dr. Sarah Johnson',
-      specialty: 'Pediatrician',
-      rating: 5.0,
-      reviewCount: 156,
-      hospital: "Children's Medical Center",
-      availableToday: true,
-      isConnected: true,
-      imageUrl: '/assets/doctors/sarah-johnson.jpg'
-    },
-    {
-      id: '4',
-      name: 'Dr. David Kim',
-      specialty: 'Orthopedic Surgeon',
-      rating: 4.7,
-      reviewCount: 94,
-      hospital: 'Sports Medicine Institute',
-      availableToday: true,
-      isConnected: false,
-      imageUrl: '/assets/doctors/david-kim.jpg'
-    },
-    {
-      id: '5',
-      name: 'Dr. Jennifer Martinez',
-      specialty: 'Dermatologist',
-      rating: 4.9,
-      reviewCount: 112,
-      hospital: 'Skin Care Center',
-      availableToday: true,
-      isConnected: true,
-      imageUrl: '/assets/doctors/jennifer-martinez.jpg'
-    },
-    {
-      id: '6',
-      name: 'Dr. Robert Taylor',
-      specialty: 'Neurologist',
-      rating: 4.8,
-      reviewCount: 78,
-      hospital: 'Brain & Spine Clinic',
-      availableToday: true,
-      isConnected: false,
-      imageUrl: '/assets/doctors/robert-taylor.jpg'
-    }
-  ];
-
-  filteredDoctors: Doctor[] = [];
+  allDoctors: DoctorDisplay[] = [];
+  filteredDoctors: DoctorDisplay[] = [];
+  isLoading: boolean = false;
   
   // Modal states
   showMessageModal: boolean = false;
   showBookingModal: boolean = false;
-  selectedDoctor: Doctor | null = null;
+  selectedDoctor: DoctorDisplay | null = null;
   messageText: string = '';
   
   // Booking form
@@ -133,6 +60,8 @@ export class FindDoctors implements OnInit {
   // Calendar
   calendarDays: CalendarDay[] = [];
   currentMonth: string = 'November 2025';
+  currentYear = new Date().getFullYear();
+  currentMonthIndex = new Date().getMonth();
   
   // Time slots
   availableTimeSlots: string[] = [
@@ -141,165 +70,113 @@ export class FindDoctors implements OnInit {
     '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'
   ];
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private DoctorService: DoctorService,
+    private connectionService: ConnectionService
+  ) {}
 
   ngOnInit(): void {
-    this.filteredDoctors = [...this.allDoctors];
+    this.loadUserInfo();
+    this.loadDoctors();
     this.generateCalendarDays();
   }
 
-  generateCalendarDays(): void {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth(); // current month
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
+  loadUserInfo(): void {
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      this.userName = `${user.firstName} ${user.lastName}`;
+    }
+  }
 
-  this.currentMonth = firstDay.toLocaleString('default', {
-    month: 'long',
-    year: 'numeric'
-  });
+  loadDoctors(): void {
+    this.isLoading = true;
+    this.DoctorService.getAllDoctors(this.selectedSpecialty, this.searchQuery)
+      .subscribe({
+        next: (response) => {
+          if (response.success && response.doctors) {
+            // Map backend doctors to display format
+            this.allDoctors = response.doctors.map(doc => ({
+              ...doc,
+              isConnected: false,
+              isPending: false
+            }));
+            
+            // Check connection status for each doctor
+            this.checkConnectionStatuses();
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error loading doctors:', error);
+          this.isLoading = false;
+          alert('Failed to load doctors. Please try again.');
+        }
+      });
+  }
 
-  const startWeekDay = firstDay.getDay(); // 0=Sun
-  const daysInMonth = lastDay.getDate();
-
-  const days: CalendarDay[] = [];
-
-  // fill previous month days
-  const prevMonthLastDay = new Date(year, month, 0).getDate();
-  for (let i = startWeekDay - 1; i >= 0; i--) {
-    days.push({
-      day: prevMonthLastDay - i,
-      disabled: true,
-      isCurrentMonth: false,
-      isSelected: false
+  checkConnectionStatuses(): void {
+    this.allDoctors.forEach((doctor, index) => {
+      this.connectionService.checkConnection(doctor._id).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.allDoctors[index].isConnected = response.isConnected || false;
+            this.allDoctors[index].isPending = response.isPending || false;
+          }
+          // Update filtered doctors after checking all
+          if (index === this.allDoctors.length - 1) {
+            this.filterDoctors();
+          }
+        },
+        error: (error) => {
+          console.error('Error checking connection:', error);
+        }
+      });
     });
-  }
-
-  // fill current month days
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push({
-      day: i,
-      isCurrentMonth: true,
-      isSelected: i === this.selectedDate,
-      disabled: false
-    });
-  }
-
-  // fill next month days until grid = 42 cells
-  while (days.length < 42) {
-    days.push({
-      day: days.length - (startWeekDay + daysInMonth) + 1,
-      disabled: true,
-      isCurrentMonth: false,
-      isSelected: false
-    });
-  }
-
-  this.calendarDays = days;
-}
-
-currentYear = new Date().getFullYear();
-currentMonthIndex = new Date().getMonth(); // 0=Jan
-
-prevMonth(): void {
-  this.currentMonthIndex--;
-  if (this.currentMonthIndex < 0) {
-    this.currentMonthIndex = 11;
-    this.currentYear--;
-  }
-  this.updateCalendar();
-}
-
-nextMonth(): void {
-  this.currentMonthIndex++;
-  if (this.currentMonthIndex > 11) {
-    this.currentMonthIndex = 0;
-    this.currentYear++;
-  }
-  this.updateCalendar();
-}
-
-updateCalendar(): void {
-  const firstDay = new Date(this.currentYear, this.currentMonthIndex, 1);
-  this.currentMonth = firstDay.toLocaleString('default', { month: 'long', year: 'numeric' });
-
-  const lastDay = new Date(this.currentYear, this.currentMonthIndex + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startWeekDay = firstDay.getDay();
-
-  const days: CalendarDay[] = [];
-
-  // previous month
-  const prevMonthLastDay = new Date(this.currentYear, this.currentMonthIndex, 0).getDate();
-  for (let i = startWeekDay - 1; i >= 0; i--) {
-    days.push({
-      day: prevMonthLastDay - i,
-      disabled: true,
-      isCurrentMonth: false,
-      isSelected: false
-    });
-  }
-
-  // current month
-  for (let i = 1; i <= daysInMonth; i++) {
-    days.push({
-      day: i,
-      isCurrentMonth: true,
-      isSelected: i === this.selectedDate,
-      disabled: false
-    });
-  }
-
-  // next month
-  while (days.length < 42) {
-    days.push({
-      day: days.length - (startWeekDay + daysInMonth) + 1,
-      disabled: true,
-      isCurrentMonth: false,
-      isSelected: false
-    });
-  }
-
-  this.calendarDays = days;
-}
-
-
-
-  selectDate(day: CalendarDay): void {
-    if (day.disabled || !day.isCurrentMonth) return;
-    
-    this.selectedDate = day.day;
-    this.generateCalendarDays();
-  }
-
-  selectTimeSlot(time: string): void {
-    this.selectedTime = time;
   }
 
   onSearch(): void {
-    this.filterDoctors();
+    this.loadDoctors();
   }
 
   onSpecialtyChange(): void {
-    this.filterDoctors();
+    this.loadDoctors();
   }
 
   filterDoctors(): void {
-    this.filteredDoctors = this.allDoctors.filter(doc => {
-      const matchesSearch = doc.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-                           doc.specialty.toLowerCase().includes(this.searchQuery.toLowerCase());
-      const matchesSpecialty = this.selectedSpecialty === 'all' || 
-                              doc.specialty.toLowerCase().includes(this.selectedSpecialty);
-      return matchesSearch && matchesSpecialty;
+    this.filteredDoctors = [...this.allDoctors];
+  }
+
+  connectWithDoctor(doctor: DoctorDisplay): void {
+    if (doctor.isPending) {
+      alert('Connection request already sent and pending approval.');
+      return;
+    }
+
+    this.connectionService.requestConnection(doctor._id).subscribe({
+      next: (response) => {
+        if (response.success) {
+          alert(`Connection request sent to Dr. ${doctor.firstName} ${doctor.lastName}!`);
+          doctor.isPending = true;
+        }
+      },
+      error: (error) => {
+        console.error('Error requesting connection:', error);
+        alert('Failed to send connection request. Please try again.');
+      }
     });
   }
 
-  openMessageModal(doctor: Doctor): void {
+  getFullDoctorName(doctor: DoctorDisplay): string {
+    return `Dr. ${doctor.firstName} ${doctor.lastName}`;
+  }
+
+  openMessageModal(doctor: DoctorDisplay): void {
     this.selectedDoctor = doctor;
     this.messageText = '';
     this.showMessageModal = true;
-    this.showBookingModal = false; 
+    this.showBookingModal = false;
   }
 
   closeMessageModal(): void {
@@ -310,14 +187,13 @@ updateCalendar(): void {
 
   sendMessage(): void {
     if (this.messageText.trim() && this.selectedDoctor) {
-      console.log('Sending message to:', this.selectedDoctor.name, this.messageText);
-      // TODO: Implement actual message sending
+      console.log('Sending message to:', this.selectedDoctor.firstName, this.messageText);
       alert('Message sent successfully!');
       this.closeMessageModal();
     }
   }
 
-  openBookingModal(doctor: Doctor): void {
+  openBookingModal(doctor: DoctorDisplay): void {
     this.selectedDoctor = doctor;
     this.appointmentType = 'in-person';
     this.selectedTime = '';
@@ -345,28 +221,92 @@ updateCalendar(): void {
     
     if (this.selectedDoctor) {
       console.log('Booking appointment:', {
-        doctor: this.selectedDoctor.name,
+        doctor: `${this.selectedDoctor.firstName} ${this.selectedDoctor.lastName}`,
         type: this.appointmentType,
-        date: `November ${this.selectedDate}, 2025`,
+        date: `${this.currentMonth} ${this.selectedDate}`,
         time: this.selectedTime,
         reason: this.appointmentReason
       });
       
-      alert(`Appointment booked successfully with ${this.selectedDoctor.name} on November ${this.selectedDate}, 2025 at ${this.selectedTime}`);
+      alert(`Appointment booked successfully with ${this.getFullDoctorName(this.selectedDoctor)} on ${this.currentMonth} ${this.selectedDate} at ${this.selectedTime}`);
       this.closeBookingModal();
       this.router.navigate(['/appointment']);
     }
   }
 
-  connectWithDoctor(doctor: Doctor): void {
-    console.log('Connecting with:', doctor.name);
-    // TODO: Implement connection request
-    doctor.isConnected = true;
-    alert(`Connection request sent to ${doctor.name}!`);
+  // Calendar methods
+  generateCalendarDays(): void {
+    const firstDay = new Date(this.currentYear, this.currentMonthIndex, 1);
+    const lastDay = new Date(this.currentYear, this.currentMonthIndex + 1, 0);
+
+    this.currentMonth = firstDay.toLocaleString('default', {
+      month: 'long',
+      year: 'numeric'
+    });
+
+    const startWeekDay = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+    const days: CalendarDay[] = [];
+
+    // Previous month days
+    const prevMonthLastDay = new Date(this.currentYear, this.currentMonthIndex, 0).getDate();
+    for (let i = startWeekDay - 1; i >= 0; i--) {
+      days.push({
+        day: prevMonthLastDay - i,
+        disabled: true,
+        isCurrentMonth: false,
+        isSelected: false
+      });
+    }
+
+    // Current month days
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({
+        day: i,
+        isCurrentMonth: true,
+        isSelected: i === this.selectedDate,
+        disabled: false
+      });
+    }
+
+    // Next month days
+    while (days.length < 42) {
+      days.push({
+        day: days.length - (startWeekDay + daysInMonth) + 1,
+        disabled: true,
+        isCurrentMonth: false,
+        isSelected: false
+      });
+    }
+
+    this.calendarDays = days;
   }
 
-  logout(): void {
-    this.router.navigate(['login']);
+  prevMonth(): void {
+    this.currentMonthIndex--;
+    if (this.currentMonthIndex < 0) {
+      this.currentMonthIndex = 11;
+      this.currentYear--;
+    }
+    this.generateCalendarDays();
   }
 
+  nextMonth(): void {
+    this.currentMonthIndex++;
+    if (this.currentMonthIndex > 11) {
+      this.currentMonthIndex = 0;
+      this.currentYear++;
+    }
+    this.generateCalendarDays();
+  }
+
+  selectDate(day: CalendarDay): void {
+    if (day.disabled || !day.isCurrentMonth) return;
+    this.selectedDate = day.day;
+    this.generateCalendarDays();
+  }
+
+  selectTimeSlot(time: string): void {
+    this.selectedTime = time;
+  }
 }

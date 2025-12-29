@@ -15,7 +15,7 @@ const connectionSchema = new mongoose.Schema(
     records: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "MedicalRecord"
+        ref: "Document"
       }
     ],
     status: {

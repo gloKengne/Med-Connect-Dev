@@ -1,7 +1,7 @@
 import { Component , EventEmitter, Output} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-
+import { OnboardingService } from '../../services/onboarding';
 
 @Component({
   selector: 'app-step1',
@@ -12,31 +12,35 @@ import { CommonModule } from '@angular/common';
 })
 export class Step1 {
 
-  specialty = '';
-  phone = '+1 (555) 123-4567';
-  hospital = 'City General Hospital';
-  experience = 10;
-  fee = 150;
-
   
-  // Emit events to parent component
-  @Output() stepClosed = new EventEmitter<void>();
-  @Output() stepNext = new EventEmitter<void>();
+  specialty = '';
+  phone = '';
+  hospital = '';
+  experience = 0;
+  fee = 0;
 
-  // Method to close the modal
+  constructor(private onboardingService: OnboardingService) {}
+
   close() {
-    console.log('Modal closed');
-    this.stepClosed.emit(); // notify parent to close
+    this.onboardingService.close();
   }
 
-  // Method to go to the next step
   next() {
     if (!this.specialty || !this.phone) {
       alert('Please fill in the required fields!');
       return;
     }
-    console.log('Moving to next step');
-    this.stepNext.emit(); // notify parent to show next step
+
+    // Save data to service
+    this.onboardingService.saveStep1Data({
+      specialty: this.specialty,
+      phone: this.phone,
+      hospital: this.hospital,
+      yearsOfExperience: this.experience,
+      consultationFee: this.fee
+    });
+
+    this.onboardingService.nextStep();
   }
 
 }

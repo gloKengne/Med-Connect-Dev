@@ -68,11 +68,11 @@ export const routes: Routes = [
     loadComponent: () => import('./doctor/dashboard-doctor/dashboard-doctor')
       .then(m => m.DashboardDoctor)
   },
-  {
-    path: 'doctor-dashboard/onboarding',
-    loadComponent: () => import('./features/onboarding/onboarding')
-      .then(m => m.OnboardingLayout)
-  },
+  // {
+  //   path: 'doctor-dashboard/onboarding',
+  //   loadComponent: () => import('./features/onboarding/onboarding')
+  //     .then(m => m.OnboardingComponent)
+  // },
   {
     path: 'doctor-patients',
     loadComponent: () => import('./doctor/patients/patients')

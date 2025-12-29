@@ -14,7 +14,7 @@ import { Auth, AuthResponse } from '../../services/auth';
 })
 export class Signup {
 
-  signupForm: FormGroup;
+   signupForm: FormGroup;
   loading = false;
   errorMessage = '';
 
@@ -63,43 +63,56 @@ export class Signup {
   }
 
   onSubmit() {
-  if (this.signupForm.valid) {
-    this.loading = true;
-    this.errorMessage = '';
-    
-    const signupData = {
-      firstName: this.signupForm.value.firstName,
-      lastName: this.signupForm.value.lastName,
-      email: this.signupForm.value.email,
-      password: this.signupForm.value.password,
-      phone: this.signupForm.value.phone,
-      address: this.signupForm.value.address,
-      userType: this.signupForm.value.userType
-    };
-    
-    this.authService.signUp(signupData).subscribe({
-      next: (response) => {
-        this.loading = false;
-        if (response.success) {
-          // Redirect based on user type
-          if (this.signupForm.value.userType === 'patient') {
-            this.router.navigate(['/patient-dashboard']);
-          } else {
-            this.router.navigate(['/doctor-dashboard']);
+    if (this.signupForm.valid) {
+      this.loading = true;
+      this.errorMessage = '';
+      
+      const signupData = {
+        firstName: this.signupForm.value.firstName,
+        lastName: this.signupForm.value.lastName,
+        email: this.signupForm.value.email,
+        password: this.signupForm.value.password,
+        phone: this.signupForm.value.phone,
+        address: this.signupForm.value.address,
+        userType: this.signupForm.value.userType
+      };
+      
+      console.log('📝 Attempting signup...');
+      
+      this.authService.signUp(signupData).subscribe({
+        next: (response) => {
+          console.log('📝 Signup response:', response);
+          this.loading = false;
+          
+          if (response.success && response.data) {
+            const user = response.data.user;
+            console.log('📝 User created:', user);
+            console.log('📝 User type:', user.userType);
+            
+            // FIXED: Always go to dashboard, modal will show automatically for unverified doctors
+            if (user.userType === 'doctor') {
+              console.log('📝 Redirecting to doctor dashboard...');
+              this.router.navigate(['/doctor-dashboard']);
+            } else if (user.userType === 'patient') {
+              console.log('📝 Redirecting to patient dashboard...');
+              this.router.navigate(['/patient-dashboard']);
+            } else {
+              this.router.navigate(['/login']);
+            }
           }
+        },
+        error: (error) => {
+          this.loading = false;
+          this.errorMessage = error.message || 'Sign up failed. Please try again.';
+          console.error('🔴 Signup error:', error);
         }
-      },
-      error: (error) => {
-        this.loading = false;
-        this.errorMessage = error.message || 'Sign up failed. Please try again.';
-      }
-    });
-  } else {
-    Object.keys(this.signupForm.controls).forEach(key => {
-      this.signupForm.get(key)?.markAsTouched();
-    });
+      });
+    } else {
+      Object.keys(this.signupForm.controls).forEach(key => {
+        this.signupForm.get(key)?.markAsTouched();
+      });
+    }
   }
-}
 
   navigateToSignIn() {
     this.router.navigate(['login']);

@@ -13,8 +13,7 @@ import { Auth } from '../../services/auth';
   styleUrl: './login.css',
 })
 export class Login {
-
-  signinForm: FormGroup;
+signinForm: FormGroup;
   loading = false;
   errorMessage = '';
 
@@ -47,23 +46,34 @@ export class Login {
         password: this.signinForm.value.password
       };
       
+      console.log('🔑 Attempting login...');
+      
       this.authService.signIn(credentials).subscribe({
         next: (response) => {
+          console.log('🔑 Login response:', response);
           this.loading = false;
-          if (response.success) {
-            // Redirect based on user type
-            const userType = this.authService.currentUserValue?.userType;
-            if (userType === 'patient') {
-              this.router.navigate(['/patient-dashboard']);
-            } else if (userType === 'doctor') {
+          
+          if (response.success && response.data) {
+            const user = response.data.user;
+            console.log('🔑 User:', user);
+            console.log('🔑 User type:', user.userType);
+            
+            // FIXED: Always go to dashboard, modal will show automatically for unverified doctors
+            if (user.userType === 'doctor') {
+              console.log('🔑 Redirecting to doctor dashboard...');
               this.router.navigate(['/doctor-dashboard']);
+            } else if (user.userType === 'patient') {
+              console.log('🔑 Redirecting to patient dashboard...');
+              this.router.navigate(['/patient-dashboard']);
+            } else {
+              this.router.navigate(['/login']);
             }
           }
         },
         error: (error) => {
           this.loading = false;
           this.errorMessage = error.message || 'Login failed. Please try again.';
-          console.error('Login error:', error);
+          console.error('🔴 Login error:', error);
         }
       });
     } else {

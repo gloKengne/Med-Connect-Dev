@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
 import DoctorRegistrationModal from '../../components/DoctorRegistrationModal'
 
-const API_URL = 'http://localhost:5000/api/auth';
+const API_URL = 'http://192.168.1.165:5000/api/auth';
 
 type DoctorData = {
   name: string;

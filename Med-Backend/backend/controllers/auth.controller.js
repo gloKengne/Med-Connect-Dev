@@ -16,7 +16,12 @@ export const register = async (req, res) => {
 
     // Check if user exists
     const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ message: "Email already used" });
+    if (exists) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Email already used" 
+      });
+    }
 
     // Hash password
     const hashed = await bcrypt.hash(password, 10);
@@ -32,31 +37,14 @@ export const register = async (req, res) => {
       userType: userType || "patient"
     });
 
-    res.json({ message: "User registered", user });
-  } catch (error) {
-    res.status(500).json({ error });
-  }
-};
-
-export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Find user
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Invalid email" });
-
-    // Compare password
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: "Wrong password" });
-
-    // Generate JWT
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, email: user.email, userType: user.userType  },
+      { id: user._id, email: user.email, userType: user.userType },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
+    // Prepare user response (exclude password)
     const userResponse = {
       userId: user._id,
       firstName: user.firstName,
@@ -66,8 +54,7 @@ export const login = async (req, res) => {
       address: user.address,
       userType: user.userType,
       isVerified: user.isVerified
-
-      };
+    };
 
     res.status(201).json({ 
       success: true,
@@ -85,4 +72,62 @@ export const login = async (req, res) => {
       error: error.message 
     });
   }
-  };
+};
+
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid email" 
+      });
+    }
+
+    // Compare password
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Wrong password" 
+      });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { id: user._id, email: user.email, userType: user.userType },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    const userResponse = {
+      userId: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      userType: user.userType,
+      isVerified: user.isVerified
+    };
+
+    res.status(200).json({ 
+      success: true,
+      message: "Login successful",
+      data: {
+        user: userResponse,
+        token
+      }
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Server error during login",
+      error: error.message 
+    });
+  }
+};

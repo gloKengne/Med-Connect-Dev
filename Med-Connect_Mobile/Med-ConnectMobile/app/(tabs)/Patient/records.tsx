@@ -20,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // import DocumentViewer from '@/components/DocumentViewer'; // Import the DocumentViewer component
 
 // Replace with your computer's IP address
-const API_URL = 'http://192.168.1.i:5000/api'; // CHANGE THIS TO YOUR IP
+const API_URL = 'http://192.168.1.165:5000/api'; // CHANGE THIS TO YOUR IP
 
 type DocumentType = 'lab_results' | 'imaging' | 'prescription' | 'clinical_notes' | 'vaccination_records' | 'others';
 

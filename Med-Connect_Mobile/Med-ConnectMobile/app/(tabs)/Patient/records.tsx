@@ -408,7 +408,10 @@ export default function MedicalRecordsPage() {
         <TouchableOpacity style={styles.navItemActive}>
           <Text style={styles.navTextActive}>My Records</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
+        >
           <Text style={styles.navText}>Find Doctors</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>

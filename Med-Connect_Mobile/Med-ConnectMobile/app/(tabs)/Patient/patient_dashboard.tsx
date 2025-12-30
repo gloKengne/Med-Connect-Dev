@@ -358,10 +358,16 @@ export default function PatientDashboard() {
   >
     <Text style={styles.navText}>My Records</Text>
   </TouchableOpacity>
-  <TouchableOpacity style={styles.navItem}>
+  <TouchableOpacity 
+    style={styles.navItem}
+    onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
+  >
     <Text style={styles.navText}>Find Doctors</Text>
   </TouchableOpacity>
-  <TouchableOpacity style={styles.navItem}>
+  <TouchableOpacity 
+    style={styles.navItem}
+    onPress={() => router.push('/(tabs)/Patient/appointmentPage')}
+  >
     <Text style={styles.navText}>Appointments</Text>
   </TouchableOpacity>
   <TouchableOpacity style={styles.navItem}>

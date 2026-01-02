@@ -8,7 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-const API_URL = 'http://192.168.1.165:5000/api'; // CHANGE THIS TO YOUR IP
+const API_URL = 'http://192.168.1.165:5000/api'; 
 const FS = FileSystem as any;
 
 type DocumentType = 'lab_results' | 'imaging' | 'prescription' | 'clinical_notes' | 'vaccination_records' | 'others';
@@ -32,10 +32,12 @@ interface User {
 }
 
 export default function PatientDashboard() {
+  // All state hooks at the top of the component
   const [documents, setDocuments] = useState<Document[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   
   // Upload form state
   const [uploadTitle, setUploadTitle] = useState('');
@@ -45,6 +47,14 @@ export default function PatientDashboard() {
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
 
+  // First useEffect for unread count
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Second useEffect for user data and documents
   useEffect(() => {
     fetchUserData();
     fetchDocuments();
@@ -95,6 +105,28 @@ export default function PatientDashboard() {
       console.error('Fetch documents error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/notifications/unread-count`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setUnreadCount(data.unreadCount);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
     }
   };
 
@@ -321,7 +353,6 @@ export default function PatientDashboard() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.logo}>
@@ -329,8 +360,18 @@ export default function PatientDashboard() {
             <Text style={styles.logoText}>Med-Connect</Text>
           </View>
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Feather name="bell" size={20} color="#374151" />
+            <TouchableOpacity 
+              style={styles.notificationContainer}
+              onPress={() => router.push('/(tabs)/Patient/patientNotification')}
+            >
+              <Ionicons name="notifications-outline" size={24} color="#1F2937" />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{getInitials()}</Text>
@@ -338,47 +379,43 @@ export default function PatientDashboard() {
           </View>
         </View>
 
-        {/* Navigation */}
-        {/* Navigation Tabs - Scrollable */}
-<ScrollView 
-  horizontal 
-  showsHorizontalScrollIndicator={false}
-  style={styles.navigation}
-  contentContainerStyle={styles.navigationContent}
->
-  <TouchableOpacity 
-    style={styles.navItemActive}
-    onPress={() => router.push('/(tabs)/Patient/patient_dashboard')}
-  >
-    <Text style={styles.navText}>Dashboard</Text>
-  </TouchableOpacity>
-  <TouchableOpacity 
-    style={styles.navItem}
-    onPress={() => router.push('/(tabs)/Patient/records')}
-  >
-    <Text style={styles.navText}>My Records</Text>
-  </TouchableOpacity>
-  <TouchableOpacity 
-    style={styles.navItem}
-    onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
-  >
-    <Text style={styles.navText}>Find Doctors</Text>
-  </TouchableOpacity>
-  <TouchableOpacity 
-    style={styles.navItem}
-    onPress={() => router.push('/(tabs)/Patient/appointmentPage')}
-  >
-    <Text style={styles.navText}>Appointments</Text>
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.navItem}>
-    <Text style={styles.navText}>Messages</Text>
-  </TouchableOpacity>
-</ScrollView>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.navigation}
+          contentContainerStyle={styles.navigationContent}
+        >
+          <TouchableOpacity 
+            style={styles.navItemActive}
+            onPress={() => router.push('/(tabs)/Patient/patient_dashboard')}
+          >
+            <Text style={styles.navText}>Dashboard</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.navItem}
+            onPress={() => router.push('/(tabs)/Patient/records')}
+          >
+            <Text style={styles.navText}>My Records</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.navItem}
+            onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
+          >
+            <Text style={styles.navText}>Find Doctors</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.navItem}
+            onPress={() => router.push('/(tabs)/Patient/appointmentPage')}
+          >
+            <Text style={styles.navText}>Appointments</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.navItem}>
+            <Text style={styles.navText}>Messages</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
-      {/* Scrollable Content */}
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Welcome Section */}
         <View style={styles.section}>
           <Text style={styles.welcomeTitle}>
             Welcome back, {user?.firstName || 'User'}
@@ -386,7 +423,6 @@ export default function PatientDashboard() {
           <Text style={styles.welcomeSubtitle}>Here's an overview of your health information</Text>
         </View>
 
-        {/* Stats Cards Row 1 */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
@@ -411,7 +447,6 @@ export default function PatientDashboard() {
           </View>
         </View>
 
-        {/* Stats Cards Row 2 */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
@@ -436,7 +471,6 @@ export default function PatientDashboard() {
           </View>
         </View>
 
-        {/* Recent Documents */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
@@ -479,7 +513,6 @@ export default function PatientDashboard() {
           )}
         </View>
 
-        {/* Health Summary */}
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <Feather name="activity" size={18} color="#374151" />
@@ -522,7 +555,6 @@ export default function PatientDashboard() {
           </View>
         </View>
 
-        {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
 
@@ -551,7 +583,6 @@ export default function PatientDashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* Health Tip */}
         <View style={styles.section}>
           <View style={styles.tipCard}>
             <Text style={styles.tipTitle}>Health Tip of the Day</Text>
@@ -565,7 +596,6 @@ export default function PatientDashboard() {
         </View>
       </ScrollView>
 
-      {/* Upload Modal */}
       <Modal
         visible={uploadModalVisible}
         animationType="slide"
@@ -700,6 +730,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 20,
   },
+
+  notificationContainer: {
+  position: 'relative',
+  padding: 4,
+},
+badge: {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  backgroundColor: '#EF4444',
+  borderWidth: 2,
+  borderColor: '#fff',
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingHorizontal: 4,
+},
+badgeText: {
+  color: '#fff',
+  fontSize: 10,
+  fontWeight: '700',
+},
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

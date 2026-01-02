@@ -82,7 +82,7 @@ export default function SignUpPage({ navigation }: { navigation: any }) {
   };
 
   const handleSignin = () => {
-    navigation.navigate('SignIn');
+    router.push('/signin');
   };
 
   const validateBasicInfo = () => {

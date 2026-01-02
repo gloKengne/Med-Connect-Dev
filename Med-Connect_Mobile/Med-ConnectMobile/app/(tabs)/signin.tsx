@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 
-const API_URL = 'http://localhost:5000/api/auth';
+const API_URL = 'http://192.168.1.165:5000/api/auth';
 
 export default function SignInPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState('patient');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -59,13 +59,31 @@ export default function SignInPage() {
       console.log('Response data:', data);
 
       if (response.ok) {
-        console.log("Login successful, redirecting to dashboard");
+        console.log("Login successful");
+        
         // Store the token if your backend returns one
-        if (data.token) {
-          // You might want to store this in AsyncStorage or SecureStore
-          console.log('Token received:', data.token);
+        if (data.token || data.data?.token) {
+            const token = data.token || data.data?.token;
+            if (token) {
+      // Store token in AsyncStorage
+      await AsyncStorage.setItem('authToken', token);
+      console.log('Token stored successfully');
         }
-        router.push('/(tabs)/Patient/patient_dashboard');
+      }
+
+
+        // Get user type from response
+        const userType = data.userType || data.data?.user?.userType || data.user?.userType;
+        console.log('User type:', userType);
+
+        // Route based on user type
+        if (userType === 'doctor') {
+          console.log('Redirecting to doctor dashboard');
+          router.push('/(tabs)/Doctor/doctor_dashboard');
+        } else if (userType === 'patient') {
+          console.log('Redirecting to patient dashboard');
+          router.push('/(tabs)/Patient/patient_dashboard');
+        }  
       } else {
         // Display custom error message
         setErrorMessage(data.message || data.error || 'Invalid email or password');
@@ -81,6 +99,7 @@ export default function SignInPage() {
   const handleForgotPassword = () => {
     console.log('Navigate to forgot password');
     // Add forgot password navigation
+    Alert.alert('Forgot Password', 'Password reset feature coming soon!');
   };
 
   return (

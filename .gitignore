@@ -1,11 +1,30 @@
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Angular
+.angular/
+dist/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+web-build/
+
+# General
+.cache/
+.vite/
+
 # Dependencies
 node_modules/
-package-lock.json
+
 
 # Build
 dist/
 .angular/
-.cache/
+
 
 # Environment
 .env
@@ -23,3 +42,4 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+

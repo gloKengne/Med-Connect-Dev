@@ -89,38 +89,141 @@
           </div>
         </div>
 
-        <!-- Patient Specific Fields -->
-        <div *ngIf="userProfile.roles.isPatient && userProfile.patientInfo" class="role-section">
-          <h3 class="role-section-title">Patient Information</h3>
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="form-label">Blood Type</label>
-              <input 
-                type="text" 
-                class="form-input" 
-                [(ngModel)]="userProfile.patientInfo.bloodType"
-                placeholder="e.g., O+">
-            </div>
+        <!-- Patient Specific Fields - ENHANCED VERSION -->
+<div *ngIf="userProfile.roles.isPatient" class="role-section">
+  <h3 class="role-section-title">Patient Medical Information</h3>
+  
+  <!-- Basic Medical Info -->
+  <div class="form-grid">
+    <div class="form-group">
+      <label class="form-label">Date of Birth *</label>
+      <input 
+        type="date" 
+        class="form-input" 
+        [(ngModel)]="patientMedicalInfo.dateOfBirth">
+    </div>
 
-            <div class="form-group">
-              <label class="form-label">Allergies</label>
-              <input 
-                type="text" 
-                class="form-input" 
-                [(ngModel)]="userProfile.patientInfo.allergies"
-                placeholder="e.g., Penicillin, Pollen">
-            </div>
+    <div class="form-group">
+      <label class="form-label">Gender *</label>
+      <select class="form-input" [(ngModel)]="patientMedicalInfo.gender">
+        <option value="">Select Gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
 
-            <div class="form-group form-group-full">
-              <label class="form-label">Emergency Contact</label>
-              <input 
-                type="text" 
-                class="form-input" 
-                [(ngModel)]="userProfile.patientInfo.emergencyContact"
-                placeholder="Name and phone number">
-            </div>
-          </div>
+    <div class="form-group">
+      <label class="form-label">Blood Type</label>
+      <select class="form-input" [(ngModel)]="patientMedicalInfo.bloodType">
+        <option value="">Select Blood Type</option>
+        <option value="A+">A+</option>
+        <option value="A-">A-</option>
+        <option value="B+">B+</option>
+        <option value="B-">B-</option>
+        <option value="AB+">AB+</option>
+        <option value="AB-">AB-</option>
+        <option value="O+">O+</option>
+        <option value="O-">O-</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Allergies Section -->
+  <div class="subsection">
+    <h4 class="subsection-title">Allergies</h4>
+    <div *ngFor="let allergy of patientMedicalInfo.allergies; let i = index" class="array-item">
+      <div class="form-grid">
+        <div class="form-group">
+          <input 
+            type="text" 
+            class="form-input" 
+            [(ngModel)]="allergy.name"
+            placeholder="Allergy name (e.g., Penicillin)">
         </div>
+        <div class="form-group">
+          <select class="form-input" [(ngModel)]="allergy.severity">
+            <option value="mild">Mild</option>
+            <option value="moderate">Moderate</option>
+            <option value="severe">Severe</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input 
+            type="text" 
+            class="form-input" 
+            [(ngModel)]="allergy.reaction"
+            placeholder="Reaction (e.g., Hives, Anaphylaxis)">
+        </div>
+        <button type="button" class="btn-remove-item" (click)="removeAllergy(i)">×</button>
+      </div>
+    </div>
+    <button type="button" class="btn-add-item" (click)="addAllergy()">+ Add Allergy</button>
+  </div>
+
+  <!-- Emergency Contact -->
+  <div class="subsection">
+    <h4 class="subsection-title">Emergency Contact</h4>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input 
+          type="text" 
+          class="form-input" 
+          [(ngModel)]="patientMedicalInfo.emergencyContact.name"
+          placeholder="Contact name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Relationship</label>
+        <input 
+          type="text" 
+          class="form-input" 
+          [(ngModel)]="patientMedicalInfo.emergencyContact.relationship"
+          placeholder="e.g., Spouse, Parent">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input 
+          type="tel" 
+          class="form-input" 
+          [(ngModel)]="patientMedicalInfo.emergencyContact.phone"
+          placeholder="+1 (555) 000-0000">
+      </div>
+    </div>
+  </div>
+
+  <!-- Current Medications -->
+  <div class="subsection">
+    <h4 class="subsection-title">Current Medications</h4>
+    <div *ngFor="let med of patientMedicalInfo.currentMedications; let i = index" class="array-item">
+      <div class="form-grid">
+        <div class="form-group">
+          <input 
+            type="text" 
+            class="form-input" 
+            [(ngModel)]="med.name"
+            placeholder="Medication name">
+        </div>
+        <div class="form-group">
+          <input 
+            type="text" 
+            class="form-input" 
+            [(ngModel)]="med.dosage"
+            placeholder="Dosage (e.g., 10mg)">
+        </div>
+        <div class="form-group">
+          <input 
+            type="text" 
+            class="form-input" 
+            [(ngModel)]="med.frequency"
+            placeholder="Frequency (e.g., Once daily)">
+        </div>
+        <button type="button" class="btn-remove-item" (click)="removeMedication(i)">×</button>
+      </div>
+    </div>
+    <button type="button" class="btn-add-item" (click)="addMedication()">+ Add Medication</button>
+  </div>
+</div>
 
         <!-- Doctor Specific Fields -->
         <div *ngIf="userProfile.roles.isDoctor && userProfile.doctorInfo" class="role-section">

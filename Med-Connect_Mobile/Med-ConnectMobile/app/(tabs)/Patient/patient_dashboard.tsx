@@ -1,14 +1,323 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+
+const API_URL = 'http://192.168.1.165:5000/api'; // CHANGE THIS TO YOUR IP
+const FS = FileSystem as any;
+
+type DocumentType = 'lab_results' | 'imaging' | 'prescription' | 'clinical_notes' | 'vaccination_records' | 'others';
+
+interface Document {
+  _id: string;
+  docTitle: string;
+  docDate: string;
+  description?: string;
+  category: DocumentType;
+  fileUrl: string;
+  patientId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface User {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 export default function PatientDashboard() {
-  const documents = [
-    { id: 1, title: 'Blood Test Results', category: 'Lab Results', date: '2025-11-08', icon: 'file-text' },
-    { id: 2, title: 'Chest X-Ray', category: 'Imaging', date: '2025-11-05', icon: 'file-text' },
-    { id: 3, title: 'Prescription Amoxicillin', category: 'Prescription', date: '2025-11-03', icon: 'file-text' },
-    { id: 4, title: "Doctor's Notes - Checkup", category: 'Clinical Notes', date: '2025-10-30', icon: 'file-text' },
-  ];
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
+  
+  // Upload form state
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadCategory, setUploadCategory] = useState<DocumentType>('lab_results');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [uploadDate, setUploadDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedFile, setSelectedFile] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    fetchUserData();
+    fetchDocuments();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        router.push('/signin');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setUser(data);
+      }
+    } catch (error) {
+      console.error('Fetch user error:', error);
+    }
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        router.push('/signin');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/documents/my-documents`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setDocuments(data);
+      }
+    } catch (error) {
+      console.error('Fetch documents error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getInitials = () => {
+    if (!user) return '?';
+    const firstInitial = user.firstName?.charAt(0).toUpperCase() || '';
+    const lastInitial = user.lastName?.charAt(0).toUpperCase() || '';
+    return `${firstInitial}${lastInitial}`;
+  };
+
+  const getLastUpdated = () => {
+    if (documents.length === 0) return 'No updates';
+    
+    const mostRecent = documents.reduce((latest, doc) => {
+      const docDate = new Date(doc.updatedAt || doc.createdAt);
+      const latestDate = new Date(latest.updatedAt || latest.createdAt);
+      return docDate > latestDate ? doc : latest;
+    });
+
+    const lastUpdate = new Date(mostRecent.updatedAt || mostRecent.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - lastUpdate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return `${Math.floor(diffDays / 30)} months ago`;
+  };
+
+  const handleCamera = async () => {
+    try {
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (cameraPermission.status !== 'granted') {
+        Alert.alert('Permission Required', 'Camera access is needed to take photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setSelectedFile({
+          uri: file.uri,
+          type: 'image/jpeg',
+          name: `photo_${Date.now()}.jpg`,
+        });
+        setUploadModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to access camera');
+    }
+  };
+
+  const handleImagePicker = async () => {
+    try {
+      const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (mediaPermission.status !== 'granted') {
+        Alert.alert('Permission Required', 'Gallery access is needed to choose photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setSelectedFile({
+          uri: file.uri,
+          type: 'image/jpeg',
+          name: `image_${Date.now()}.jpg`,
+        });
+        setUploadModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to access gallery');
+    }
+  };
+
+  const handleDocumentPickerSelect = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setSelectedFile({
+          uri: file.uri,
+          type: file.mimeType || 'application/pdf',
+          name: file.name || `document_${Date.now()}.pdf`,
+        });
+        setUploadModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Document picker error:', error);
+      Alert.alert('Error', 'Failed to access files');
+    }
+  };
+
+  const handleUploadChoice = () => {
+    Alert.alert(
+      'Upload Document',
+      'Choose upload method',
+      [
+        { text: 'Take Photo', onPress: handleCamera },
+        { text: 'Choose from Gallery', onPress: handleImagePicker },
+        { text: 'Browse Files', onPress: handleDocumentPickerSelect },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const uploadDocument = async () => {
+    if (!uploadTitle.trim()) {
+      Alert.alert('Error', 'Please enter a document title');
+      return;
+    }
+
+    if (!selectedFile) {
+      Alert.alert('Error', 'Please select a file to upload');
+      return;
+    }
+
+    try {
+      setUploading(true);
+
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        Alert.alert('Error', 'Please login first');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri: selectedFile.uri,
+        type: selectedFile.type,
+        name: selectedFile.name,
+      } as any);
+      formData.append('docTitle', uploadTitle);
+      formData.append('docDate', uploadDate);
+      formData.append('description', uploadDescription);
+      formData.append('category', uploadCategory);
+
+      const response = await fetch(`${API_URL}/documents/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', 'Document uploaded successfully!');
+        closeUploadModal();
+        fetchDocuments();
+      } else {
+        Alert.alert('Error', data.error || 'Failed to upload document');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const closeUploadModal = () => {
+    setUploadModalVisible(false);
+    setUploadTitle('');
+    setUploadCategory('lab_results');
+    setUploadDescription('');
+    setUploadDate(new Date().toISOString().split('T')[0]);
+    setSelectedFile(null);
+  };
+
+  const handleDownloadDocument = async (doc: Document) => {
+    try {
+      Alert.alert('Downloading', 'Please wait...');
+
+      const fileExtension = doc.fileUrl.split('.').pop();
+      const fileUri = `${FS.documentDirectory}${doc.docTitle}.${fileExtension}`;
+
+      const downloadResult = await FS.downloadAsync(doc.fileUrl, fileUri);
+
+      if (downloadResult.status === 200) {
+        const isAvailable = await Sharing.isAvailableAsync();
+        
+        if (isAvailable) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            dialogTitle: `Share ${doc.docTitle}`,
+          });
+        } else {
+          Alert.alert('Success', 'File downloaded successfully!');
+        }
+      } else {
+        Alert.alert('Error', 'Failed to download file');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download file');
+    }
+  };
+
+  const recentDocuments = documents.slice(0, 4);
 
   return (
     <View style={styles.container}>
@@ -16,39 +325,64 @@ export default function PatientDashboard() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.logo}>
-            <MaterialCommunityIcons name="hospital-box" size={24} color="#2563eb" />
+            <MaterialCommunityIcons name="hospital-box" size={20} color="#2563eb" />
             <Text style={styles.logoText}>Med-Connect</Text>
           </View>
           <View style={styles.headerIcons}>
             <TouchableOpacity style={styles.iconButton}>
               <Feather name="bell" size={20} color="#374151" />
             </TouchableOpacity>
-            <View style={styles.avatar} />
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials()}</Text>
+            </View>
           </View>
         </View>
 
         {/* Navigation */}
-        <View style={styles.navigation}>
-          <TouchableOpacity style={styles.navItemActive}>
-            <Text style={styles.navTextActive}>Dashboard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
-            <Text style={styles.navText}>My Records</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
-            <Text style={styles.navText}>Find Doctors</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
-            <Text style={styles.navText}>Appointments</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Navigation Tabs - Scrollable */}
+<ScrollView 
+  horizontal 
+  showsHorizontalScrollIndicator={false}
+  style={styles.navigation}
+  contentContainerStyle={styles.navigationContent}
+>
+  <TouchableOpacity 
+    style={styles.navItemActive}
+    onPress={() => router.push('/(tabs)/Patient/patient_dashboard')}
+  >
+    <Text style={styles.navText}>Dashboard</Text>
+  </TouchableOpacity>
+  <TouchableOpacity 
+    style={styles.navItem}
+    onPress={() => router.push('/(tabs)/Patient/records')}
+  >
+    <Text style={styles.navText}>My Records</Text>
+  </TouchableOpacity>
+  <TouchableOpacity 
+    style={styles.navItem}
+    onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
+  >
+    <Text style={styles.navText}>Find Doctors</Text>
+  </TouchableOpacity>
+  <TouchableOpacity 
+    style={styles.navItem}
+    onPress={() => router.push('/(tabs)/Patient/appointmentPage')}
+  >
+    <Text style={styles.navText}>Appointments</Text>
+  </TouchableOpacity>
+  <TouchableOpacity style={styles.navItem}>
+    <Text style={styles.navText}>Messages</Text>
+  </TouchableOpacity>
+</ScrollView>
       </View>
 
       {/* Scrollable Content */}
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Welcome Section */}
         <View style={styles.section}>
-          <Text style={styles.welcomeTitle}>Welcome back, Sarah</Text>
+          <Text style={styles.welcomeTitle}>
+            Welcome back, {user?.firstName || 'User'}
+          </Text>
           <Text style={styles.welcomeSubtitle}>Here's an overview of your health information</Text>
         </View>
 
@@ -61,8 +395,8 @@ export default function PatientDashboard() {
                 <Feather name="file-text" size={20} color="#2563eb" />
               </View>
             </View>
-            <Text style={styles.statValue}>47</Text>
-            <Text style={styles.statChange}>+3 this month</Text>
+            <Text style={styles.statValue}>{documents.length}</Text>
+            <Text style={styles.statChange}>Last updated: {getLastUpdated()}</Text>
           </View>
 
           <View style={styles.statCard}>
@@ -109,34 +443,40 @@ export default function PatientDashboard() {
               <Feather name="file-text" size={18} color="#374151" />
               <Text style={styles.sectionTitle}>Recent Documents</Text>
             </View>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/Patient/records')}>
               <Text style={styles.viewAllText}>View All →</Text>
             </TouchableOpacity>
           </View>
 
-          {documents.map((doc) => (
-            <View key={doc.id} style={styles.documentCard}>
-              <View style={styles.documentIcon}>
-                <Feather name="file-text" size={20} color="#2563eb" />
+          {loading ? (
+            <ActivityIndicator size="large" color="#2563eb" />
+          ) : recentDocuments.length === 0 ? (
+            <Text style={styles.emptyText}>No documents yet. Upload your first document!</Text>
+          ) : (
+            recentDocuments.map((doc) => (
+              <View key={doc._id} style={styles.documentCard}>
+                <View style={styles.documentIcon}>
+                  <Feather name="file-text" size={20} color="#2563eb" />
+                </View>
+                <View style={styles.documentInfo}>
+                  <Text style={styles.documentTitle}>{doc.docTitle}</Text>
+                  <Text style={styles.documentCategory}>{doc.category.replace('_', ' ')}</Text>
+                  <Text style={styles.documentDate}>{new Date(doc.docDate).toLocaleDateString()}</Text>
+                </View>
+                <View style={styles.documentActions}>
+                  <TouchableOpacity style={styles.actionButton}>
+                    <Feather name="eye" size={16} color="#6b7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.actionButton}
+                    onPress={() => handleDownloadDocument(doc)}
+                  >
+                    <Feather name="download" size={16} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.documentInfo}>
-                <Text style={styles.documentTitle}>{doc.title}</Text>
-                <Text style={styles.documentCategory}>{doc.category}</Text>
-                <Text style={styles.documentDate}>{doc.date}</Text>
-              </View>
-              <View style={styles.documentActions}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Feather name="eye" size={16} color="#6b7280" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Feather name="download" size={16} color="#6b7280" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Feather name="more-vertical" size={16} color="#6b7280" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
 
         {/* Health Summary */}
@@ -186,7 +526,10 @@ export default function PatientDashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
 
-          <TouchableOpacity style={[styles.actionCard, styles.actionCardBlue]}>
+          <TouchableOpacity 
+            style={[styles.actionCard, styles.actionCardBlue]}
+            onPress={handleUploadChoice}
+          >
             <View style={styles.actionIconContainer}>
               <Feather name="upload" size={20} color="#2563eb" />
             </View>
@@ -221,18 +564,264 @@ export default function PatientDashboard() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Upload Modal */}
+      <Modal
+        visible={uploadModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeUploadModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Upload Document</Text>
+              <TouchableOpacity onPress={closeUploadModal}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Document Title *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Blood Test Results"
+                  value={uploadTitle}
+                  onChangeText={setUploadTitle}
+                  editable={!uploading}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Category *</Text>
+                <View style={styles.categoryButtons}>
+                  {[
+                    { value: 'lab_results', label: 'Lab Results' },
+                    { value: 'imaging', label: 'Imaging' },
+                    { value: 'prescription', label: 'Prescription' },
+                    { value: 'clinical_notes', label: 'Clinical Notes' },
+                    { value: 'vaccination_records', label: 'Vaccination' },
+                    { value: 'others', label: 'Others' },
+                  ].map((cat) => (
+                    <TouchableOpacity
+                      key={cat.value}
+                      style={[
+                        styles.categoryButton,
+                        uploadCategory === cat.value && styles.categoryButtonActive,
+                      ]}
+                      onPress={() => setUploadCategory(cat.value as DocumentType)}
+                      disabled={uploading}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryButtonText,
+                          uploadCategory === cat.value && styles.categoryButtonTextActive,
+                        ]}
+                      >
+                        {cat.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Date</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="YYYY-MM-DD"
+                  value={uploadDate}
+                  onChangeText={setUploadDate}
+                  editable={!uploading}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Description (Optional)</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Add any additional notes..."
+                  value={uploadDescription}
+                  onChangeText={setUploadDescription}
+                  multiline
+                  numberOfLines={3}
+                  editable={!uploading}
+                />
+              </View>
+
+              {selectedFile && (
+                <View style={styles.filePreview}>
+                  <Ionicons name="document-attach" size={20} color="#2563eb" />
+                  <Text style={styles.fileName}>{selectedFile.name}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.uploadModalBtn, uploading && styles.uploadModalBtnDisabled]}
+                onPress={uploadDocument}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
+                    <Text style={styles.uploadModalBtnText}>Upload Document</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Only new/modified styles
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    padding: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  modalBody: {
+    padding: 24,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    color: '#1a1a1a',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  categoryButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    backgroundColor: '#fff',
+  },
+  categoryButtonActive: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  categoryButtonText: {
+    fontSize: 14,
+    color: '#64748b',
+  },
+  categoryButtonTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  navigationContent: {
+  paddingHorizontal: 16,
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+  filePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    gap: 8,
+  },
+  fileName: {
+    fontSize: 14,
+    color: '#1e40af',
+    flex: 1,
+  },
+  uploadModalBtn: {
+    backgroundColor: '#2563eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  uploadModalBtnDisabled: {
+    backgroundColor: '#93c5fd',
+  },
+  uploadModalBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  // Keep all your existing styles here
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
   },
   header: {
     backgroundColor: '#ffffff',
-    paddingTop: 50,
+    paddingTop: 40,
     paddingHorizontal: 16,
     paddingBottom: 0,
     borderBottomWidth: 1,
@@ -242,7 +831,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   logo: {
     flexDirection: 'row',
@@ -250,7 +839,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1f2937',
   },
@@ -262,23 +851,17 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 4,
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#2563eb',
-  },
   navigation: {
     flexDirection: 'row',
     gap: 4,
   },
   navItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   navItemActive: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderBottomWidth: 2,
     borderBottomColor: '#2563eb',
   },

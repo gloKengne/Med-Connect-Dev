@@ -67,6 +67,11 @@ export default function SignInPage() {
             if (token) {
       // Store token in AsyncStorage
       await AsyncStorage.setItem('authToken', token);
+      console.log('Token to store:', token);
+      console.log('✅ Token stored successfully!');
+
+      // Also store user data if needed
+      await AsyncStorage.setItem('user', JSON.stringify(data.data.user));
       console.log('Token stored successfully');
         }
       }

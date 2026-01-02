@@ -1,28 +1,33 @@
-// App.tsx (or App.js with JSDoc comments)
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+// Updated DoctorDashboard.tsx - Replace the existing file with this
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Type definitions
+const API_URL = 'http://192.168.1.165:5000/api'; // Replace with your actual backend URL
+
 interface StatCardProps {
   title: string;
   value: string;
   subtitle: string;
   icon: string;
-  iconBg: string;
+  iconColor: string;
 }
 
 interface QuickActionCardProps {
   title: string;
   icon: string;
-  iconBg: string;
+  iconColor: string;
+  onPress?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, iconBg }) => (
+const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, iconColor }) => (
   <View style={styles.statCard}>
     <View style={styles.statHeader}>
       <Text style={styles.statTitle}>{title}</Text>
-      <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
-        <Text style={styles.iconText}>{icon}</Text>
+      <View style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}>
+        <Ionicons name={icon as any} size={24} color={iconColor} />
       </View>
     </View>
     <Text style={styles.statValue}>{value}</Text>
@@ -30,95 +35,166 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, iconB
   </View>
 );
 
-const QuickActionCard: React.FC<QuickActionCardProps> = ({ title, icon, iconBg }) => (
-  <TouchableOpacity style={styles.actionCard}>
-    <View style={[styles.actionIconContainer, { backgroundColor: iconBg }]}>
-      <Text style={styles.actionIcon}>{icon}</Text>
+const QuickActionCard: React.FC<QuickActionCardProps> = ({ title, icon, iconColor, onPress }) => (
+  <TouchableOpacity style={styles.actionCard} onPress={onPress}>
+    <View style={[styles.actionIconContainer, { backgroundColor: `${iconColor}15` }]}>
+      <Ionicons name={icon as any} size={28} color={iconColor} />
     </View>
     <Text style={styles.actionTitle}>{title}</Text>
   </TouchableOpacity>
 );
 
-export default function App() {
+export default function DoctorDashboard() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    // Refresh unread count every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/notifications/unread-count`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setUnreadCount(data.unreadCount);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.logo}>
-              <Text style={styles.logoIcon}>❤️</Text>
-            </View>
-            <Text style={styles.logoText}>Med-Connect</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <View style={styles.logo}>
+            <Text style={styles.logoIcon}>+</Text>
           </View>
-          <View style={styles.headerRight}>
-            <View style={styles.notificationBadge}>
-              <Text style={styles.bellIcon}>🔔</Text>
-              <View style={styles.badge} />
-            </View>
-            <View style={styles.profileContainer}>
-              <View style={styles.profileCircle}>
-                <Text style={styles.profileInitial}>D</Text>
+          <Text style={styles.logoText}>Med-Connect</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={styles.notificationContainer}
+            onPress={() => router.push('/(tabs)/Doctor/DoctorNotificationPage')}
+          >
+            <Ionicons name="notifications-outline" size={24} color="#1F2937" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
               </View>
-              <Text style={styles.profileName}>Dr. Patricia</Text>
+            )}
+          </TouchableOpacity>
+          <View style={styles.profileContainer}>
+            <View style={styles.profileCircle}>
+              <Text style={styles.profileInitial}>D</Text>
             </View>
           </View>
         </View>
+      </View>
 
-        {/* Navigation */}
-        <View style={styles.nav}>
-          <TouchableOpacity style={styles.navItemActive}>
-            <Text style={styles.navTextActive}>Dashboard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
-            <Text style={styles.navText}>Patients</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
-            <Text style={styles.navText}>Schedule</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
-            <Text style={styles.navText}>Messages</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Navigation */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        style={styles.navContainer}
+        contentContainerStyle={styles.navContent}
+      >
+        <TouchableOpacity style={styles.navTabActive}>
+          <Text style={styles.navTabTextActive}>Dashboard</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navTab}
+          onPress={() => router.push('/(tabs)/Doctor/doctor-patients')}
+        >
+          <Text style={styles.navTabText}>Patients</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navTab}>
+          <Text style={styles.navTabText}>Schedule</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navTab}>
+          <Text style={styles.navTabText}>Messages</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
+      {/* Main Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Welcome, Dr. Patricia</Text>
-          <Text style={styles.welcomeSubtitle}>Here's your dashboard overview</Text>
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>Welcome, Dr. Patricia</Text>
+          <Text style={styles.subtitle}>Here's your dashboard overview</Text>
         </View>
+
+        {/* Notification Alert if there are pending requests */}
+        {unreadCount > 0 && (
+          <TouchableOpacity 
+            style={styles.notificationAlert}
+            onPress={() => router.push('/(tabs)/Doctor/DoctorNotificationPage')}
+          >
+            <View style={styles.alertIcon}>
+              <Ionicons name="notifications" size={24} color="#2563EB" />
+            </View>
+            <View style={styles.alertContent}>
+              <Text style={styles.alertTitle}>
+                You have {unreadCount} new notification{unreadCount !== 1 ? 's' : ''}
+              </Text>
+              <Text style={styles.alertSubtitle}>Tap to view connection requests</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#2563EB" />
+          </TouchableOpacity>
+        )}
 
         {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <StatCard
-            title="TOTAL PATIENTS"
-            value="142"
-            subtitle="+8 this month"
-            icon="👥"
-            iconBg="#E3F2FD"
-          />
-          <StatCard
-            title="TODAY'S APPOINTMENTS"
-            value="12"
-            subtitle="3 remaining"
-            icon="📅"
-            iconBg="#E0F7FA"
-          />
-        </View>
-        <View style={styles.statsGrid}>
-          <StatCard
-            title="PENDING REVIEWS"
-            value="7"
-            subtitle="Lab results & imaging"
-            icon="⭐"
-            iconBg="#FCE4EC"
-          />
-          <StatCard
-            title="ACTIVE CONSULTATIONS"
-            value="4"
-            subtitle="In progress"
-            icon="🎥"
-            iconBg="#E8EAF6"
-          />
+        <View style={styles.statsContainer}>
+          <View style={styles.statsRow}>
+            <StatCard
+              title="Total Patients"
+              value="142"
+              subtitle="+8 this month"
+              icon="people-outline"
+              iconColor="#2563EB"
+            />
+            <StatCard
+              title="Today's Appointments"
+              value="12"
+              subtitle="3 remaining"
+              icon="calendar-outline"
+              iconColor="#06B6D4"
+            />
+          </View>
+          <View style={styles.statsRow}>
+            <StatCard
+              title="Pending Reviews"
+              value="7"
+              subtitle="Lab results & imaging"
+              icon="document-text-outline"
+              iconColor="#EC4899"
+            />
+            <StatCard
+              title="Active Consultations"
+              value="4"
+              subtitle="In progress"
+              icon="videocam-outline"
+              iconColor="#8B5CF6"
+            />
+          </View>
         </View>
 
         {/* Quick Actions */}
@@ -127,19 +203,63 @@ export default function App() {
           <View style={styles.actionsRow}>
             <QuickActionCard
               title="View Patients"
-              icon="👥"
-              iconBg="#E3F2FD"
+              icon="people-outline"
+              iconColor="#2563EB"
+              onPress={() => router.push('/(tabs)/Doctor/doctor-patients')}
             />
             <QuickActionCard
-              title="Schedule"
-              icon="📅"
-              iconBg="#E0F7FA"
+              title="Notifications"
+              icon="notifications-outline"
+              iconColor="#F59E0B"
+              onPress={() => router.push('/(tabs)/Doctor/DoctorNotificationPage')}
             />
             <QuickActionCard
               title="Messages"
-              icon="💬"
-              iconBg="#FFF9C4"
+              icon="chatbubbles-outline"
+              iconColor="#06B6D4"
             />
+          </View>
+        </View>
+
+        {/* Recent Activity Section */}
+        <View style={styles.recentSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity>
+              <Text style={styles.viewAllText}>View All →</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.activityCard}>
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIcon, { backgroundColor: '#DBEAFE' }]}>
+                <Ionicons name="person-add-outline" size={20} color="#2563EB" />
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>New patient registered</Text>
+                <Text style={styles.activityTime}>2 hours ago</Text>
+              </View>
+            </View>
+
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIcon, { backgroundColor: '#D1FAE5' }]}>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Appointment completed</Text>
+                <Text style={styles.activityTime}>4 hours ago</Text>
+              </View>
+            </View>
+
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIcon, { backgroundColor: '#FEF3C7' }]}>
+                <Ionicons name="document-outline" size={20} color="#F59E0B" />
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={styles.activityTitle}>Lab results received</Text>
+                <Text style={styles.activityTime}>5 hours ago</Text>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -148,38 +268,36 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F9FAFB',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 16,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#E5E7EB',
   },
-  headerLeft: {
+  logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logo: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: '#2196F3',
+    borderRadius: 8,
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   logoIcon: {
-    fontSize: 20,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#fff',
   },
   logoText: {
     fontSize: 20,
@@ -192,101 +310,149 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  notificationBadge: {
+  notificationContainer: {
     position: 'relative',
-  },
-  bellIcon: {
-    fontSize: 22,
+    padding: 4,
   },
   badge: {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   profileCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   profileInitial: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-  profileName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
-  },
-  nav: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+  navContainer: {
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    gap: 24,
+    borderBottomColor: '#E5E7EB',
+    maxHeight: 50,
   },
-  navItem: {
-    paddingVertical: 12,
-  },
-  navItemActive: {
-    paddingVertical: 12,
-    borderBottomWidth: 3,
-    borderBottomColor: '#2196F3',
-  },
-  navText: {
-    fontSize: 15,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  navTextActive: {
-    fontSize: 15,
-    color: '#2196F3',
-    fontWeight: '600',
-  },
-  welcomeSection: {
+  navContent: {
     paddingHorizontal: 20,
-    paddingTop: 32,
-    paddingBottom: 24,
+    alignItems: 'center',
   },
-  welcomeTitle: {
-    fontSize: 32,
+  navTab: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  navTabActive: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: '#2563EB',
+  },
+  navTabText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#9CA3AF',
+  },
+  navTabTextActive: {
+    color: '#2563EB',
+    fontWeight: '500',
+    fontSize: 16,
+  },
+  content: {
+    flex: 1,
+  },
+  titleSection: {
+    padding: 20,
+    paddingTop: 24,
+  },
+  title: {
+    fontSize: 28,
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  welcomeSubtitle: {
-    fontSize: 16,
+  subtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    lineHeight: 22,
+  },
+  notificationAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  alertIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#DBEAFE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  alertSubtitle: {
+    fontSize: 13,
     color: '#6B7280',
   },
-  statsGrid: {
-    flexDirection: 'row',
+  statsContainer: {
     paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
     gap: 16,
     marginBottom: 16,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowRadius: 8,
     elevation: 2,
   },
   statHeader: {
@@ -300,19 +466,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6B7280',
     letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconText: {
-    fontSize: 20,
-  },
   statValue: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
@@ -323,8 +488,8 @@ const styles = StyleSheet.create({
   },
   quickActionsSection: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
   sectionTitle: {
     fontSize: 20,
@@ -334,36 +499,91 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
   },
   actionCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowRadius: 8,
     elevation: 2,
     minHeight: 120,
   },
   actionIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  actionIcon: {
-    fontSize: 28,
-  },
   actionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1F2937',
+    textAlign: 'center',
+  },
+  recentSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  activityCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  activityTime: {
+    fontSize: 13,
+    color: '#9CA3AF',
   },
 });

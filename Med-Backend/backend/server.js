@@ -13,6 +13,7 @@ import connectionRoutes from "./routes/connection.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import doctorProfileRoutes from "./routes/doctor-profile.routes.js";
 import patientProfileRoutes from "./routes/patient-profile.routes.js";
+import dashboardRoutes from './routes/dashboardRoutes.js';
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/doctors", doctorProfileRoutes);
 app.use("/api/patients", patientProfileRoutes);
 app.use("/api/test", testInsert);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");

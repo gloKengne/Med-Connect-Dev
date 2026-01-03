@@ -5,6 +5,8 @@ import {  Router } from '@angular/router';
 import { SharedHeader } from '../../features/shared-header/shared-header';
 import { FormsModule } from '@angular/forms';
 import { PatientProfileService, PatientProfile } from '../../services/patient-profile';
+import { ConnectionService } from '../../services/connection';
+import { MessageService } from '../../services/message';
 
 @Component({
   selector: 'app-patient-detail',
@@ -22,41 +24,94 @@ export class PatientDetail implements OnInit {
   showMessageModal: boolean = false;
   messageText: string = '';
   attachedFile: File | null = null;
-  selectedAppointment: any = { doctorName: 'John Smith', specialty: 'Patient' }; // Mock data
+  connectionId: string | null = null;
   
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private patientProfileService: PatientProfileService
+    private patientProfileService: PatientProfileService,
+    private connectionService: ConnectionService,
+    private messageService: MessageService
   ) {}
 
   ngOnInit() {
     this.patientId = this.route.snapshot.params['id'];
-    console.log('Patient ID:', this.patientId);
+    console.log('👤 Patient Detail - Patient ID:', this.patientId);
     this.loadPatientData();
+    this.loadConnectionId();
   }
 
   loadPatientData(): void {
     this.loading = true;
+    console.log('📥 Loading patient data...');
+    
     this.patientProfileService.getPatientById(this.patientId).subscribe({
       next: (response) => {
         if (response.success) {
           this.patient = response.patient;
-          console.log('Patient data loaded:', this.patient);
+          console.log('✅ Patient data loaded:', this.patient);
+        } else {
+          console.warn('⚠️ Patient data load failed:', response);
         }
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error loading patient data:', error);
+        console.error('❌ Error loading patient data:', error);
         this.loading = false;
-        alert('Failed to load patient data');
+        alert('Failed to load patient data. Please try again.');
       }
     });
   }
 
-   get patientName(): string {
+  loadConnectionId(): void {
+    console.log('🔍 Looking for connection ID for patient:', this.patientId);
+    
+    // Get all doctor's connections and find the one with this patient
+    this.connectionService.getDoctorConnections().subscribe({
+      next: (response) => {
+        if (response.success && response.connections) {
+          console.log('📋 Total connections:', response.connections.length);
+          
+          // Find the connection for this specific patient
+          const connection = response.connections.find(conn => {
+            const patient = conn.patient as any;
+            const patientId = patient._id || patient.userId;
+            
+            console.log('🔍 Checking connection:', {
+              connectionId: conn._id,
+              patientId: patientId,
+              targetPatientId: this.patientId,
+              match: patientId === this.patientId
+            });
+            
+            return patientId === this.patientId;
+          });
+          
+          if (connection) {
+            this.connectionId = connection._id;
+            console.log('✅ Connection ID found:', this.connectionId);
+          } else {
+            console.warn('⚠️ No connection found for this patient');
+            console.log('Available patient IDs:', 
+              response.connections.map(c => {
+                const p = c.patient as any;
+                return p._id || p.userId;
+              })
+            );
+          }
+        } else {
+          console.warn('⚠️ No connections in response');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading connection:', error);
+      }
+    });
+  }
+
+  get patientName(): string {
     return this.patient ? `${this.patient.firstName} ${this.patient.lastName}` : 'Loading...';
   }
 
@@ -82,29 +137,41 @@ export class PatientDetail implements OnInit {
 
   formatDate(dateString: string | undefined): string {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch (error) {
+      console.error('❌ Error formatting date:', error);
+      return 'N/A';
+    }
   }
 
   setTab(tab: string) {
     this.activeTab = tab;
+    console.log('📑 Tab changed to:', tab);
   }
 
   cancel(): void {
+    console.log('⬅️ Navigating back to patients list');
     this.router.navigate(['doctor-patients']);
   }
 
-  // ✅ ADD THIS METHOD TO OPEN MODAL
   openMessageModal(): void {
+    if (!this.connectionId) {
+      console.error('❌ Cannot open message modal: Connection ID not found');
+      alert('Connection not found. Please refresh the page and try again.');
+      return;
+    }
+    
+    console.log('💬 Opening message modal with connection:', this.connectionId);
     this.showMessageModal = true;
     this.messageText = '';
     this.attachedFile = null;
   }
 
-  // File upload methods
   triggerFileInput(): void {
     this.fileInput.nativeElement.click();
   }
@@ -112,6 +179,8 @@ export class PatientDetail implements OnInit {
   onFileSelected(event: any): void {
     const file = event.target.files[0];
     if (file) {
+      console.log('📎 File selected:', file.name, file.type, file.size);
+      
       const maxSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxSize) {
         alert('File size exceeds 10MB limit. Please choose a smaller file.');
@@ -133,11 +202,12 @@ export class PatientDetail implements OnInit {
       }
 
       this.attachedFile = file;
-      console.log('File attached:', file.name);
+      console.log('✅ File attached successfully');
     }
   }
 
   removeAttachment(): void {
+    console.log('🗑️ Removing attachment');
     this.attachedFile = null;
     if (this.fileInput) {
       this.fileInput.nativeElement.value = '';
@@ -153,24 +223,74 @@ export class PatientDetail implements OnInit {
   }
 
   sendMessage(): void {
+    // Validate inputs
     if (!this.messageText.trim() && !this.attachedFile) {
+      console.warn('⚠️ Cannot send empty message');
+      alert('Please enter a message or attach a file.');
       return;
     }
-    
-    console.log('Sending message to: John Smith', this.messageText);
-    if (this.attachedFile) {
-      console.log('With attachment:', this.attachedFile.name);
+
+    if (!this.connectionId) {
+      console.error('❌ Cannot send: Connection ID missing');
+      alert('Connection not found. Please refresh the page and try again.');
+      return;
     }
+
+    const content = this.messageText.trim() || (this.attachedFile ? `Sent ${this.attachedFile.name}` : '');
     
-    // Clear form
-    this.messageText = '';
-    this.attachedFile = null;
-    if (this.fileInput) {
-      this.fileInput.nativeElement.value = '';
-    }
+    console.log('📤 Sending message:', {
+      connectionId: this.connectionId,
+      content: content,
+      hasAttachment: !!this.attachedFile,
+      attachmentName: this.attachedFile?.name
+    });
+
+    this.messageService.sendMessage(this.connectionId, content, this.attachedFile || undefined).subscribe({
+      next: (response) => {
+        if (response.success) {
+          console.log('✅ Message sent successfully:', response);
+          alert('Message sent successfully!');
+          
+          // Clear inputs
+          this.messageText = '';
+          this.attachedFile = null;
+          if (this.fileInput) {
+            this.fileInput.nativeElement.value = '';
+          }
+          
+          // Close modal
+          this.closeMessageModal();
+        } else {
+          console.warn('⚠️ Message send failed:', response);
+          alert('Failed to send message. Please try again.');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error sending message:', error);
+        console.error('Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
+        
+        let errorMessage = 'Failed to send message. ';
+        if (error.error && error.error.message) {
+          errorMessage += error.error.message;
+        } else if (error.status === 403) {
+          errorMessage += 'You do not have permission to send messages to this patient.';
+        } else if (error.status === 404) {
+          errorMessage += 'Connection not found.';
+        } else {
+          errorMessage += 'Please try again.';
+        }
+        
+        alert(errorMessage);
+      }
+    });
   }
 
   closeMessageModal(): void {
+    console.log('❌ Closing message modal');
     this.showMessageModal = false;
     this.messageText = '';
     this.attachedFile = null;

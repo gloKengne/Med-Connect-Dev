@@ -14,7 +14,7 @@ import { OnboardingService } from '../../services/onboarding';
   styleUrl: './dashboard-doctor.css',
 })
 export class DashboardDoctor implements OnInit {
-doctorName: string = 'Dr. Patricia';
+  doctorName: string = '';
   
   stats = [
     { label: 'Total Patients', value: 142, subtitle: '+8 this month', icon: '👥', color: '#4A90E2', iconType: 'patients'},

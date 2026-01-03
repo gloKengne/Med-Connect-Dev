@@ -3,9 +3,12 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { SharedHeader } from '../../features/shared-header/shared-header';
 import { FormsModule } from '@angular/forms';
+import { MessageService } from '../../services/message';
+import { ConnectionService } from '../../services/connection';
 
 interface Appointmentattributes {
   id: string;
+  doctorId?: string;
   doctorName: string;
   specialty: string;
   date: string;
@@ -14,6 +17,7 @@ interface Appointmentattributes {
   status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
   type: 'in-person' | 'video';
   imageUrl: string;
+  connectionId?: string;
 }
 
 @Component({
@@ -24,9 +28,8 @@ interface Appointmentattributes {
   styleUrl: './appointment.css',
 })
 export class Appointment implements OnInit{
-  userName: string = 'Sarah';
-
-activeTab: 'upcoming' | 'past' = 'upcoming';
+ userName: string = '';
+  activeTab: 'upcoming' | 'past' = 'upcoming';
   
   appointments: Appointmentattributes[] = [
     {
@@ -74,10 +77,54 @@ activeTab: 'upcoming' | 'past' = 'upcoming';
   // Message form
   messageText: string = '';
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private messageService: MessageService,
+    private connectionService: ConnectionService
+  ) {}
 
   ngOnInit(): void {
+    this.loadUserInfo();
     this.filterAppointments();
+    this.loadConnectionIds();
+  }
+
+  loadUserInfo(): void {
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      this.userName = `${user.firstName} ${user.lastName}`;
+    }
+  }
+
+  loadConnectionIds(): void {
+    // Get all patient connections to match with appointments
+    this.connectionService.getPatientConnections().subscribe({
+      next: (response) => {
+        if (response.success && response.connections) {
+          // Create a map of doctor names to connection IDs
+          const connectionMap = new Map();
+          response.connections.forEach(conn => {
+            if (conn.status === 'accepted') {
+              const doctor = conn.doctor as any;
+              const doctorName = `Dr. ${doctor.firstName} ${doctor.lastName}`;
+              connectionMap.set(doctorName, conn._id);
+            }
+          });
+
+          // Update appointments with connection IDs
+          this.appointments = this.appointments.map(appt => ({
+            ...appt,
+            connectionId: connectionMap.get(appt.doctorName)
+          }));
+
+          this.filterAppointments();
+        }
+      },
+      error: (error) => {
+        console.error('Error loading connections:', error);
+      }
+    });
   }
 
   switchTab(tab: 'upcoming' | 'past'): void {
@@ -87,6 +134,7 @@ activeTab: 'upcoming' | 'past' = 'upcoming';
 
   filterAppointments(): void {
     // For now, just show all as upcoming
+    // In production, you'd filter by date
     this.filteredAppointments = [...this.appointments];
   }
 
@@ -103,13 +151,17 @@ activeTab: 'upcoming' | 'past' = 'upcoming';
   confirmCancel(): void {
     if (this.selectedAppointment) {
       console.log('Cancelling appointment:', this.selectedAppointment.id);
-      // TODO: Implement actual cancellation
       this.selectedAppointment.status = 'cancelled';
       this.closeCancelModal();
     }
   }
 
   openMessageModal(appointment: Appointmentattributes): void {
+    if (!appointment.connectionId) {
+      alert('Connection not found. Please make sure you are connected with this doctor.');
+      return;
+    }
+
     this.selectedAppointment = appointment;
     this.messageText = '';
     this.showMessageModal = true;
@@ -122,18 +174,31 @@ activeTab: 'upcoming' | 'past' = 'upcoming';
   }
 
   sendMessage(): void {
-    if (this.messageText.trim() && this.selectedAppointment) {
-      console.log('Sending message to:', this.selectedAppointment.doctorName, this.messageText);
-      // TODO: Implement actual message sending
-      this.messageText = '';
-      // Optionally close modal after sending
-      // this.closeMessageModal();
+    if (!this.messageText.trim() || !this.selectedAppointment || !this.selectedAppointment.connectionId) {
+      return;
     }
+
+    this.messageService.sendMessage(
+      this.selectedAppointment.connectionId,
+      this.messageText.trim()
+    ).subscribe({
+      next: (response) => {
+        if (response.success) {
+          alert('Message sent successfully!');
+          this.messageText = '';
+        }
+      },
+      error: (error) => {
+        console.error('Error sending message:', error);
+        alert('Failed to send message. Please try again.');
+      }
+    });
   }
 
   joinVideoCall(appointment: Appointmentattributes): void {
     console.log('Joining video call:', appointment.id);
     // TODO: Implement video call functionality
+    alert('Video call feature coming soon!');
   }
 
   logout(): void {

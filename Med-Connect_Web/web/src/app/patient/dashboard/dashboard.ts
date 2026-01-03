@@ -60,7 +60,7 @@ interface CalendarDay {
 })
 export class Dashboard implements OnInit{
 
- userName: string = 'Sarah';
+   userName: string = '';
   
   stats: StatCard[] = [
     {

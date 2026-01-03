@@ -13,6 +13,7 @@ import connectionRoutes from "./routes/connection.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import doctorProfileRoutes from "./routes/doctor-profile.routes.js";
 import patientProfileRoutes from "./routes/patient-profile.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/connections", connectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/doctors", doctorProfileRoutes);
 app.use("/api/patients", patientProfileRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/test", testInsert);
 
 app.get("/", (req, res) => {

@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Alert, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from 'react-native';
 
-const API_URL = 'http://192.168.1.165:5000/api'; // Base API URL
+const API_URL = 'http://localhost:5000/api'; // Base API URL
 
 export default function SignUpPage({ navigation }: { navigation: any }) {
   const [firstName, setFirstName] = useState('');
@@ -19,26 +19,6 @@ export default function SignUpPage({ navigation }: { navigation: any }) {
   const [errorMessage, setErrorMessage] = useState('');
   
   const [showDatePicker, setShowDatePicker] = useState(false);
-  
-  const [showPatientModal, setShowPatientModal] = useState(false);
-  const [showDoctorModal, setShowDoctorModal] = useState(false);
-
-  const [bloodType, setBloodType] = useState('');
-  const [emergencyContactName, setEmergencyContactName] = useState('');
-  const [emergencyContactRelationship, setEmergencyContactRelationship] = useState('');
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
-
-  const [specialty, setSpecialty] = useState('');
-  const [hospital, setHospital] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [yearsOfExperience, setYearsOfExperience] = useState('');
-  const [consultationFee, setConsultationFee] = useState('');
-  const [bio, setBio] = useState('');
-
-  // State for patient medical information
-  const [allergies, setAllergies] = useState('');
-  const [currentMedications, setCurrentMedications] = useState('');
-  const [medicalHistory, setMedicalHistory] = useState('');
 
   // Date picker states
   const [selectedYear, setSelectedYear] = useState<number | string>('');
@@ -117,198 +97,56 @@ export default function SignUpPage({ navigation }: { navigation: any }) {
     return true;
   };
 
-  const validateDoctorInfo = () => {
-    if (!specialty.trim()) {
-      Alert.alert('Error', 'Please enter your medical specialty');
-      return false;
-    }
-    if (!hospital.trim()) {
-      Alert.alert('Error', 'Please enter your hospital/clinic');
-      return false;
-    }
-    if (!licenseNumber.trim()) {
-      Alert.alert('Error', 'Please enter your license number');
-      return false;
-    }
-    const yearsExp = parseFloat(yearsOfExperience);
-      if (!yearsOfExperience.trim() || isNaN(yearsExp) || yearsExp < 0) {
-        Alert.alert('Error', 'Please enter valid years of experience');
-        return false;
-      }
-    const consultationFeeNum = parseFloat(consultationFee);
-      if (!consultationFee.trim() || isNaN(consultationFeeNum) || consultationFeeNum < 0) {
-        Alert.alert('Error', 'Please enter valid consultation fee');
-        return false;
-      }
-  
-  return true;
+const handleSignup = async () => {
+  if (!validateBasicInfo()) return; // Don't forget to validate!
+
+  setLoading(true);
+
+  // Since your onPress calls setUserType('doctor') or setUserType('patient'),
+  // userType is ALREADY what the backend needs.
+  const signupData = {
+    firstName,
+    lastName,
+    email: email.toLowerCase().trim(),
+    password,
+    phone,
+    address,
+    userType: userType // This will now be "doctor" or "patient"
   };
 
-  const handleContinue = () => {
-    if (!validateBasicInfo()) {
-      return;
-    }
+  console.log("📤 Sending to server:", signupData);
 
-    if (userType === 'patient') {
-      setShowPatientModal(true);
+  try {
+    const response = await fetch('http://localhost:5000/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(signupData),
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      const userFromDB = result.data.user;
+      console.log("📥 Received from DB:", userFromDB);
+
+      if (userFromDB.userType === 'doctor') {
+        router.push({
+          pathname: '/Doctor/doctor-onboarding',
+          params: { token: result.data.token } 
+        });
+      } else {
+        router.push('/signin');
+      }
     } else {
-      setShowDoctorModal(true);
+      Alert.alert("Error", result.message || "Signup failed");
     }
-  };
-
-  const handlePatientSignup = async () => {
-    setLoading(true);
-    
-    try {
-      // Parse allergies from string to array
-      const allergiesArray = allergies.trim() ? allergies.split(',').map(allergy => ({
-        name: allergy.trim(),
-        severity: "mild", // Default severity
-        reaction: ""
-      })) : [];
-
-      // Parse current medications from string to array
-      const medicationsArray = currentMedications.trim() ? currentMedications.split(',').map(med => ({
-        name: med.trim(),
-        dosage: "",
-        frequency: "",
-        startDate: new Date()
-      })) : [];
-
-      // Parse medical history from string to array
-      const medicalHistoryArray = medicalHistory.trim() ? medicalHistory.split(',').map(condition => ({
-        condition: condition.trim(),
-        diagnosedDate: new Date(),
-        notes: ""
-      })) : [];
-
-      const patientData = {
-        firstName,
-        lastName,
-        email: email.toLowerCase().trim(),
-        password,
-        phone,
-        address,
-        dateOfBirth,
-        gender,
-        userType: 'patient',
-        bloodType: bloodType || undefined,
-        emergencyContact: emergencyContactName.trim() ? {
-          name: emergencyContactName,
-          relationship: emergencyContactRelationship,
-          phone: emergencyContactPhone
-        } : undefined,
-        allergies: allergiesArray,
-        currentMedications: medicationsArray,
-        medicalHistory: medicalHistoryArray
-      };
-
-      console.log('Sending patient registration:', patientData);
-
-      const response = await fetch(`${API_URL}/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(patientData),
-      });
-
-      const data = await response.json();
-      console.log('Patient registration response:', data);
-
-      if (response.ok) {
-        Alert.alert(
-          'Success', 
-          'Account created successfully! You can now sign in.',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => {
-                setShowPatientModal(false);
-                router.push('/signin');
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Registration Failed', data.message || data.error || 'Failed to create account');
-      }
-    } catch (error) {
-      console.error('Patient signup error:', error);
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDoctorSignup = async () => {
-    if (!validateDoctorInfo()) {
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      const doctorData = {
-        firstName,
-        lastName,
-        email: email.toLowerCase().trim(),
-        password,
-        phone,
-        address,
-        dateOfBirth,
-        gender,
-        userType: 'doctor',
-        specialty,
-        hospital,
-        licenseNumber,
-        yearsOfExperience: parseInt(yearsOfExperience),
-        consultationFee: parseFloat(consultationFee),
-        bio: bio || undefined,
-        isVerified: false, // Doctors need verification
-        rating: 0,
-        reviewCount: 0,
-        availableToday: true,
-        availability: new Map()
-      };
-
-      console.log('Sending doctor registration:', doctorData);
-
-      const response = await fetch(`${API_URL}/auth/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(doctorData),
-      });
-
-      const data = await response.json();
-      console.log('Doctor registration response:', data);
-
-      if (response.ok) {
-        Alert.alert(
-          'Success', 
-          'Doctor account created! Please wait for verification from admin.',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => {
-                setShowDoctorModal(false);
-                router.push('/signin');
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Registration Failed', data.message || data.error || 'Failed to create account');
-      }
-    } catch (error) {
-      console.error('Doctor signup error:', error);
-      Alert.alert('Error', 'Network error. Please check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error("Signup Error:", error);
+    Alert.alert("Error", "Check if server is running on localhost:5000");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.container}>
@@ -320,7 +158,8 @@ export default function SignUpPage({ navigation }: { navigation: any }) {
             </View>
           </View>
 
-          <Text style={styles.title}>Create Account</Text>
+          <Text style={
+            styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join Med-Connect to manage your health</Text>
 
           <View style={styles.form}>
@@ -472,13 +311,13 @@ export default function SignUpPage({ navigation }: { navigation: any }) {
 
             <TouchableOpacity 
               style={[styles.continueButton, loading && styles.continueButtonDisabled]} 
-              onPress={handleContinue}
+              onPress={handleSignup}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.continueButtonText}>Continue</Text>
+                <Text style={styles.continueButtonText}>Create Account</Text>
               )}
             </TouchableOpacity>
 
@@ -571,281 +410,6 @@ export default function SignUpPage({ navigation }: { navigation: any }) {
             </View>
           </View>
         </View>
-      </Modal>
-
-      {/* Patient Registration Modal */}
-      <Modal
-        visible={showPatientModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => !loading && setShowPatientModal(false)}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.modalTitle}>Additional Information</Text>
-              <Text style={styles.modalSubtitle}>Help us serve you better</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Blood Type (Optional)</Text>
-                <View style={styles.bloodTypeContainer}>
-                  {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[styles.bloodTypeButton, bloodType === type && styles.bloodTypeButtonSelected]}
-                      onPress={() => setBloodType(type)}
-                      disabled={loading}
-                    >
-                      <Text style={[styles.bloodTypeText, bloodType === type && styles.bloodTypeTextSelected]}>
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <Text style={styles.sectionTitle}>Medical Information (Optional)</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Allergies</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Separate with commas, e.g., Penicillin, Peanuts"
-                  value={allergies}
-                  onChangeText={setAllergies}
-                  multiline
-                  numberOfLines={2}
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Current Medications</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Separate with commas, e.g., Lisinopril, Metformin"
-                  value={currentMedications}
-                  onChangeText={setCurrentMedications}
-                  multiline
-                  numberOfLines={2}
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Medical History</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Separate with commas, e.g., Diabetes, Hypertension"
-                  value={medicalHistory}
-                  onChangeText={setMedicalHistory}
-                  multiline
-                  numberOfLines={2}
-                  editable={!loading}
-                />
-              </View>
-
-              <Text style={styles.sectionTitle}>Emergency Contact (Optional)</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Contact Name</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Jane Doe"
-                  value={emergencyContactName}
-                  onChangeText={setEmergencyContactName}
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Relationship</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Spouse, Parent, Sibling"
-                  value={emergencyContactRelationship}
-                  onChangeText={setEmergencyContactRelationship}
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Contact Phone</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="+237 XXX XXX XXX"
-                  value={emergencyContactPhone}
-                  onChangeText={setEmergencyContactPhone}
-                  keyboardType="phone-pad"
-                  returnKeyType="done"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.bottomPadding} />
-            </ScrollView>
-
-            <View style={styles.modalButtonsFixed}>
-              <TouchableOpacity
-                style={styles.modalButtonSecondary}
-                onPress={() => setShowPatientModal(false)}
-                disabled={loading}
-              >
-                <Text style={styles.modalButtonSecondaryText}>Back</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButtonPrimary, loading && styles.modalButtonDisabled]}
-                onPress={handlePatientSignup}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalButtonPrimaryText}>Complete Registration</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Doctor Registration Modal */}
-      <Modal
-        visible={showDoctorModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => !loading && setShowDoctorModal(false)}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <ScrollView 
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.modalTitle}>Professional Information</Text>
-              <Text style={styles.modalSubtitle}>Complete your professional profile</Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Medical Specialty *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Cardiology, Pediatrics, etc."
-                  value={specialty}
-                  onChangeText={setSpecialty}
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Hospital/Clinic *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Your primary workplace"
-                  value={hospital}
-                  onChangeText={setHospital}
-                  returnKeyType="next"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>License Number *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Medical license number"
-                  value={licenseNumber}
-                  onChangeText={setLicenseNumber}
-                  autoCapitalize="characters"
-                  returnKeyType="next"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Years of Experience *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., 5"
-                  value={yearsOfExperience}
-                  onChangeText={setYearsOfExperience}
-                  keyboardType="numeric"
-                  returnKeyType="next"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Consultation Fee (XAF) *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., 15000"
-                  value={consultationFee}
-                  onChangeText={setConsultationFee}
-                  keyboardType="numeric"
-                  returnKeyType="next"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Bio (Optional)</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Brief description of your practice and expertise"
-                  value={bio}
-                  onChangeText={setBio}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  returnKeyType="done"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.noteBox}>
-                <Text style={styles.noteText}>
-                  ⓘ Note: Doctor accounts require verification by administration. You'll be notified once your account is approved.
-                </Text>
-              </View>
-
-              <View style={styles.bottomPadding} />
-            </ScrollView>
-
-            <View style={styles.modalButtonsFixed}>
-              <TouchableOpacity
-                style={styles.modalButtonSecondary}
-                onPress={() => setShowDoctorModal(false)}
-                disabled={loading}
-              >
-                <Text style={styles.modalButtonSecondaryText}>Back</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButtonPrimary, loading && styles.modalButtonDisabled]}
-                onPress={handleDoctorSignup}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalButtonPrimaryText}>Complete Registration</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

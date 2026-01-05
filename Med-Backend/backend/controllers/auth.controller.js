@@ -15,7 +15,7 @@ export const register = async (req, res) => {
         message: "Please provide all required fields" 
       });
     }
-
+    
     // Check if user exists
     const exists = await User.findOne({ email });
     if (exists) {
@@ -74,6 +74,7 @@ export const register = async (req, res) => {
     });
   }
 };
+
 
 export const login = async (req, res) => {
   try {

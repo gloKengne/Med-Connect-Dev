@@ -1,5 +1,5 @@
 import express from "express";
-import { protect } from "../middlewares/auth.middleware.js";
+import authMiddle from "../middleware/authMiddle.js";  
 import {
   sendMessage,
   getMessages
@@ -7,7 +7,7 @@ import {
 
 const router = express.Router();
 
-router.post("/", protect, sendMessage);
-router.get("/:connectionId", protect, getMessages);
+router.post("/", authMiddle, sendMessage);
+router.get("/:connectionId", authMiddle, getMessages);
 
 export default router;

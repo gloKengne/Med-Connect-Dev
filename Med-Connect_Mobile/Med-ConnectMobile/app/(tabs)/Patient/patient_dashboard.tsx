@@ -217,6 +217,12 @@ export default function PatientDashboard() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.navItem}
+            onPress={() => router.push('/(tabs)/Patient/messages')}
+          >
+            <Text style={styles.navText}>Messages</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.navItem}
             onPress={() => router.push('/(tabs)/Patient/appointmentPage')}
           >
             <Text style={styles.navText}>Appointments</Text>

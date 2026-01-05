@@ -183,7 +183,8 @@ export default function DoctorDashboard() {
         <TouchableOpacity style={styles.navTab}>
           <Text style={styles.navText}>Schedule</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navTab}>
+        <TouchableOpacity style={styles.navTab}
+        onPress={() => router.push('/(tabs)/Doctor/messages')}>
           <Text style={styles.navText}>Messages</Text>
         </TouchableOpacity>
       </ScrollView>

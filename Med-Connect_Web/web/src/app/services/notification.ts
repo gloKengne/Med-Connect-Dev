@@ -12,13 +12,30 @@ export interface Notification {
     firstName: string;
     lastName: string;
   };
-  type: 'CONNECTION_REQUEST' | 'CONNECTION_ACCEPTED' | 'CONNECTION_REJECTED';
+
+  type:
+    | 'CONNECTION_REQUEST'
+    | 'CONNECTION_ACCEPTED'
+    | 'CONNECTION_REJECTED'
+    | 'APPOINTMENT_REQUEST'
+    | 'APPOINTMENT_CONFIRMED'
+    | 'APPOINTMENT_REJECTED'
+    | 'APPOINTMENT_CANCELLED';
+
   message: string;
   isRead: boolean;
+
   relatedConnection?: {
     _id: string;
-    status: string;
+    status: 'pending' | 'accepted' | 'rejected';
   };
+
+  relatedAppointment?: {
+    _id: string;
+    status: 'pending' | 'confirmed' | 'rejected' | 'cancelled';
+    date?: string;
+  };
+
   createdAt: string;
   updatedAt: string;
 }

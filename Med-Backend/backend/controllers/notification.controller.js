@@ -1,3 +1,4 @@
+// backend/controllers/notification.controller.js
 import Notification from "../models/Notification.js";
 
 // Get all notifications for logged-in user
@@ -13,6 +14,14 @@ export const getNotifications = async (req, res) => {
       populate: [
         { path: "patient", select: "firstName lastName" },
         { path: "doctor", select: "firstName lastName" }
+      ]
+    })
+    .populate({
+      path: "relatedAppointment",
+      select: "_id status date startTime endTime type patient doctor",
+      populate: [
+        { path: "patient", select: "firstName lastName" },
+        { path: "doctor", select: "firstName lastName specialty" }
       ]
     })
     .sort({ createdAt: -1 })
@@ -67,6 +76,10 @@ export const markAsRead = async (req, res) => {
     .populate({
       path: "relatedConnection",
       select: "_id status patient doctor"
+    })
+    .populate({
+      path: "relatedAppointment",
+      select: "_id status date startTime endTime type"
     });
 
     if (!notification) {

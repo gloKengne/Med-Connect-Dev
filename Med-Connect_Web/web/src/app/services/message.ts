@@ -43,8 +43,7 @@ export interface MessageResponse {
 })
 export class MessageService {
 
-  
-  private apiUrl = 'http://localhost:5000/api/messages';
+ private apiUrl = 'http://localhost:5000/api/messages';
   private unreadCountSubject = new BehaviorSubject<number>(0);
   public unreadCount$ = this.unreadCountSubject.asObservable();
 
@@ -60,41 +59,77 @@ export class MessageService {
     });
   }
 
-  // Send a message
+  // FIX 2: Proper message sending with better error handling
   sendMessage(connectionId: string, content: string, attachment?: File): Observable<MessageResponse> {
     console.log('📤 Sending message:', { connectionId, content, hasAttachment: !!attachment });
 
-    const formData = new FormData();
-    formData.append('connectionId', connectionId);
-    formData.append('content', content);
-    
-    if (attachment) {
-      formData.append('attachment', attachment);
+    // Validate inputs
+    if (!connectionId) {
+      console.error('❌ No connectionId provided');
+      return throwError(() => new Error('Connection ID is required'));
     }
 
-    // For FormData, don't set Content-Type header (browser will set it with boundary)
-    const token = localStorage.getItem('token');
-    const headers = new HttpHeaders({
-      'Authorization': `Bearer ${token}`
-    });
+    if (!content.trim() && !attachment) {
+      console.error('❌ No content or attachment provided');
+      return throwError(() => new Error('Message content or attachment is required'));
+    }
 
-    return this.http.post<MessageResponse>(
-      this.apiUrl,
-      formData,
-      { headers }
-    ).pipe(
-      tap(response => {
-        console.log('✅ Message sent:', response);
-        this.loadUnreadCount(); // Refresh unread count
-      }),
-      catchError(error => {
-        console.error('❌ Send message error:', error);
-        return throwError(() => error);
-      })
-    );
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('❌ No auth token found');
+      return throwError(() => new Error('Authentication required'));
+    }
+
+    if (attachment) {
+      // Send with attachment using FormData
+      const formData = new FormData();
+      formData.append('connectionId', connectionId);
+      formData.append('content', content.trim() || `Sent ${attachment.name}`);
+      formData.append('attachment', attachment);
+
+      // Don't set Content-Type - browser will set it with boundary
+      const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`
+      });
+
+      return this.http.post<MessageResponse>(
+        this.apiUrl,
+        formData,
+        { headers }
+      ).pipe(
+        tap(response => {
+          console.log('✅ Message with attachment sent:', response);
+          this.loadUnreadCount();
+        }),
+        catchError(error => {
+          console.error('❌ Send message with attachment error:', error);
+          return throwError(() => error);
+        })
+      );
+    } else {
+      // Send text-only message as JSON
+      return this.http.post<MessageResponse>(
+        this.apiUrl,
+        { 
+          connectionId, 
+          content: content.trim() 
+        },
+        { headers: this.getHeaders() }
+      ).pipe(
+        tap(response => {
+          console.log('✅ Text message sent:', response);
+          this.loadUnreadCount();
+        }),
+        catchError(error => {
+          console.error('❌ Send text message error:', error);
+          console.error('Error status:', error.status);
+          console.error('Error body:', error.error);
+          return throwError(() => error);
+        })
+      );
+    }
   }
 
-  // Get messages for a connection
   getMessages(connectionId: string): Observable<MessageResponse> {
     console.log('📥 Fetching messages for connection:', connectionId);
 
@@ -104,8 +139,6 @@ export class MessageService {
     ).pipe(
       tap(response => {
         console.log('✅ Messages retrieved:', response);
-        // Don't auto-mark as read here - let the component decide
-        // This prevents marking messages as read when just polling for updates
       }),
       catchError(error => {
         console.error('❌ Get messages error:', error);
@@ -114,7 +147,6 @@ export class MessageService {
     );
   }
 
-  // Get all conversations for current user
   getConversations(): Observable<MessageResponse> {
     console.log('📋 Fetching conversations...');
 
@@ -139,7 +171,6 @@ export class MessageService {
     );
   }
 
-  // Mark messages as read
   markAsRead(connectionId: string): Observable<MessageResponse> {
     console.log('✓ Marking messages as read:', connectionId);
 
@@ -159,7 +190,6 @@ export class MessageService {
     );
   }
 
-  // Get unread message count
   getUnreadCount(): Observable<MessageResponse> {
     return this.http.get<MessageResponse>(
       `${this.apiUrl}/unread-count`,
@@ -181,7 +211,6 @@ export class MessageService {
     this.getUnreadCount().subscribe();
   }
 
-  // Delete a message
   deleteMessage(messageId: string): Observable<MessageResponse> {
     console.log('🗑️ Deleting message:', messageId);
 
@@ -197,6 +226,5 @@ export class MessageService {
     );
   }
 
-  
   
 }

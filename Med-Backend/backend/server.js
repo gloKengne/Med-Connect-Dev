@@ -14,6 +14,8 @@ import notificationRoutes from "./routes/notification.routes.js";
 import doctorProfileRoutes from "./routes/doctor-profile.routes.js";
 import patientProfileRoutes from "./routes/patient-profile.routes.js";
 import messageRoutes from "./routes/message.routes.js";
+import appointmentRoutes from "./routes/appointment.routes.js";
+import availabilityRoutes from "./routes/availability.routes.js";
 
 const app = express();
 
@@ -34,6 +36,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/doctors", doctorProfileRoutes);
 app.use("/api/patients", patientProfileRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/appointments", appointmentRoutes);
+app.use("/api/availability", availabilityRoutes);
 app.use("/api/test", testInsert);
 
 app.get("/", (req, res) => {

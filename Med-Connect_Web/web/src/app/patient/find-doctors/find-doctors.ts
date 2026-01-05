@@ -6,6 +6,7 @@ import { SharedHeader } from '../../features/shared-header/shared-header';
 import { DoctorService, Doctor } from '../../services/doctor';
 import { ConnectionService } from '../../services/connection';
 import { MessageService } from '../../services/message';
+import { AppointmentService, TimeSlot } from '../../services/appointment.service';
 
 interface DoctorDisplay extends Doctor {
   isConnected: boolean;
@@ -51,15 +52,34 @@ export class FindDoctors implements OnInit {
   
   // Modal states
   showMessageModal: boolean = false;
+  showBookingModal: boolean = false;
   selectedDoctor: DoctorDisplay | null = null;
   messageText: string = '';
+
+  // Booking form
+  bookingForm = {
+    date: '',
+    startTime: '',
+    endTime: '',
+    type: 'in-person' as 'in-person' | 'video',
+    reason: '',
+    notes: ''
+  };
+  availableSlots: TimeSlot[] = [];
+  loadingSlots: boolean = false;
+  minDate: string = '';
 
   constructor(
     private router: Router,
     private DoctorService: DoctorService,
     private connectionService: ConnectionService,
-    private messageService: MessageService
-  ) {}
+    private messageService: MessageService,
+    private appointmentService: AppointmentService
+  ) {
+    // Set minimum date to today
+    const today = new Date();
+    this.minDate = today.toISOString().split('T')[0];
+  }
 
   ngOnInit(): void {
     this.loadUserInfo();
@@ -105,13 +125,11 @@ export class FindDoctors implements OnInit {
   checkConnectionStatuses(): void {
     console.log('🔍 Checking connection statuses...');
     
-    // Get all patient connections first
     this.connectionService.getPatientConnections().subscribe({
       next: (response) => {
         if (response.success && response.connections) {
           console.log('✅ Patient connections:', response.connections.length);
           
-          // Create a map of doctor IDs to connection info
           const connectionMap = new Map();
           response.connections.forEach(conn => {
             const doctorId = (conn.doctor as any)._id || (conn.doctor as any).userId;
@@ -120,15 +138,10 @@ export class FindDoctors implements OnInit {
               isPending: conn.status === 'pending',
               connectionId: conn._id
             });
-            console.log('📝 Mapped connection for doctor:', doctorId, conn.status);
           });
 
-          // Update doctors with connection status
           this.allDoctors = this.allDoctors.map(doctor => {
             const connInfo = connectionMap.get(doctor._id);
-            if (connInfo) {
-              console.log(`✅ Doctor ${doctor.firstName} ${doctor.lastName}:`, connInfo);
-            }
             return {
               ...doctor,
               isConnected: connInfo?.isConnected || false,
@@ -148,19 +161,20 @@ export class FindDoctors implements OnInit {
   }
 
   onSearch(): void {
-    console.log('🔍 Searching with query:', this.searchQuery);
+    console.log('🔎 Searching with query:', this.searchQuery);
     this.loadDoctors();
   }
 
   onSpecialtyChange(): void {
-    console.log('🏥 Specialty changed to:', this.selectedSpecialty);
+    console.log('🥼 Specialty changed to:', this.selectedSpecialty);
     this.loadDoctors();
   }
 
-  filterDoctors(): void {
-    this.filteredDoctors = [...this.allDoctors];
-    console.log('📋 Filtered doctors:', this.filteredDoctors.length);
-  }
+ filterDoctors(): void {
+  // Show all doctors
+  this.filteredDoctors = [...this.allDoctors];
+  console.log('📋 Filtered doctors:', this.filteredDoctors.length);
+}
 
   connectWithDoctor(doctor: DoctorDisplay): void {
     if (doctor.isPending) {
@@ -205,9 +219,6 @@ export class FindDoctors implements OnInit {
       return;
     }
 
-    console.log('💬 Opening message modal for doctor:', doctor.firstName, doctor.lastName);
-    console.log('🔗 Connection ID:', doctor.connectionId);
-
     this.selectedDoctor = doctor;
     this.messageText = '';
     this.showMessageModal = true;
@@ -221,15 +232,8 @@ export class FindDoctors implements OnInit {
 
   sendMessage(): void {
     if (!this.messageText.trim() || !this.selectedDoctor || !this.selectedDoctor.connectionId) {
-      console.warn('⚠️ Cannot send: missing message or connection');
       return;
     }
-
-    console.log('📤 Sending message:', {
-      connectionId: this.selectedDoctor.connectionId,
-      message: this.messageText,
-      doctor: this.getFullDoctorName(this.selectedDoctor)
-    });
 
     this.messageService.sendMessage(
       this.selectedDoctor.connectionId,
@@ -237,7 +241,6 @@ export class FindDoctors implements OnInit {
     ).subscribe({
       next: (response) => {
         if (response.success) {
-          console.log('✅ Message sent successfully');
           alert('Message sent successfully!');
           this.closeMessageModal();
         }
@@ -250,8 +253,113 @@ export class FindDoctors implements OnInit {
   }
 
   openBookingModal(doctor: DoctorDisplay): void {
+    if (!doctor.isConnected) {
+      alert('You must be connected to book an appointment with this doctor.');
+      return;
+    }
+
     console.log('📅 Opening booking modal for:', doctor.firstName, doctor.lastName);
-    // Navigate to appointments or open booking modal
-    alert('Appointment booking feature coming soon!');
+    this.selectedDoctor = doctor;
+    this.resetBookingForm();
+    this.showBookingModal = true;
+  }
+
+  closeBookingModal(): void {
+    this.showBookingModal = false;
+    this.selectedDoctor = null;
+    this.resetBookingForm();
+  }
+
+  resetBookingForm(): void {
+    this.bookingForm = {
+      date: '',
+      startTime: '',
+      endTime: '',
+      type: 'in-person',
+      reason: '',
+      notes: ''
+    };
+    this.availableSlots = [];
+  }
+
+  onDateChange(): void {
+    if (!this.bookingForm.date || !this.selectedDoctor) {
+      return;
+    }
+
+    console.log('📅 Date changed to:', this.bookingForm.date);
+    this.bookingForm.startTime = '';
+    this.bookingForm.endTime = '';
+    this.loadAvailableSlots();
+  }
+
+  loadAvailableSlots(): void {
+    if (!this.selectedDoctor || !this.bookingForm.date) {
+      return;
+    }
+
+    this.loadingSlots = true;
+    this.appointmentService.getDoctorAvailability(
+      this.selectedDoctor._id,
+      this.bookingForm.date
+    ).subscribe({
+      next: (response) => {
+        if (response.success && response.availability) {
+          this.availableSlots = response.availability.slots;
+          console.log('✅ Available slots loaded:', this.availableSlots.length);
+        }
+        this.loadingSlots = false;
+      },
+      error: (error) => {
+        console.error('❌ Error loading slots:', error);
+        alert('Failed to load available time slots.');
+        this.loadingSlots = false;
+      }
+    });
+  }
+
+  selectTimeSlot(slot: TimeSlot): void {
+    this.bookingForm.startTime = slot.start;
+    this.bookingForm.endTime = slot.end;
+    console.log('🕐 Time slot selected:', slot);
+  }
+
+  isBookingFormValid(): boolean {
+    return !!(
+      this.bookingForm.date &&
+      this.bookingForm.startTime &&
+      this.bookingForm.type &&
+      this.bookingForm.reason.trim()
+    );
+  }
+
+  confirmBooking(): void {
+    if (!this.isBookingFormValid() || !this.selectedDoctor) {
+      return;
+    }
+
+    console.log('📝 Confirming booking:', this.bookingForm);
+
+    this.appointmentService.bookAppointment({
+      doctorId: this.selectedDoctor._id,
+      date: this.bookingForm.date,
+      startTime: this.bookingForm.startTime,
+      endTime: this.bookingForm.endTime,
+      type: this.bookingForm.type,
+      reason: this.bookingForm.reason,
+      notes: this.bookingForm.notes
+    }).subscribe({
+      next: (response) => {
+        if (response.success) {
+          alert('Appointment request sent successfully! The doctor will review and confirm.');
+          this.closeBookingModal();
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error booking appointment:', error);
+        const errorMsg = error.error?.message || 'Failed to book appointment. Please try again.';
+        alert(errorMsg);
+      }
+    });
   }
 }

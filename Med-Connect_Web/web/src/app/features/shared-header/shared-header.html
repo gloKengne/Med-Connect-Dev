@@ -125,6 +125,20 @@
                     Decline
                   </button>
                 </div>
+
+                <!-- Appointment Request Actions (for doctors) -->
+                <div class="notification-actions" *ngIf="notification.type === 'APPOINTMENT_REQUEST' && notification.relatedAppointment?.status === 'pending'">
+                  <button 
+                    class="btn-accept" 
+                    (click)="handleAppointmentResponse(notification, 'accept'); $event.stopPropagation()">
+                    Accept
+                  </button>
+                  <button 
+                    class="btn-reject" 
+                    (click)="handleAppointmentResponse(notification, 'reject'); $event.stopPropagation()">
+                    Decline
+                  </button>
+                </div>
               </div>
 
               <div class="unread-indicator" *ngIf="!notification.isRead"></div>

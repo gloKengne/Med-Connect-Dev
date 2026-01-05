@@ -32,92 +32,33 @@ const upload = multer({
   },
 }).single("attachment");
 
-// Send message
+// FIX 3: Improved send message with better error handling
 export const sendMessage = async (req, res) => {
   try {
-    upload(req, res, async (err) => {
-      if (err) {
-        return res.status(400).json({ 
-          success: false, 
-          message: err.message 
-        });
-      }
+    console.log('📨 Send message request received');
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Body:', req.body);
+    console.log('User ID:', req.user?.id);
 
-      const { connectionId, content } = req.body;
+    const isMultipart = req.headers['content-type']?.startsWith('multipart/form-data');
 
-      if (!content || !content.trim()) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Message content is required" 
-        });
-      }
-
-      // 1️⃣ Check connection exists and is accepted
-      const connection = await Connection.findOne({
-        _id: connectionId,
-        status: "accepted"
-      }).populate('patient doctor', 'firstName lastName');
-
-      if (!connection) {
-        return res.status(403).json({ 
-          success: false, 
-          message: "Messaging not allowed - connection not found or not accepted" 
-        });
-      }
-
-      // 2️⃣ Ensure sender is part of the connection
-      const isParticipant =
-        connection.patient._id.toString() === req.user.id ||
-        connection.doctor._id.toString() === req.user.id;
-
-      if (!isParticipant) {
-        return res.status(403).json({ 
-          success: false, 
-          message: "You are not part of this conversation" 
-        });
-      }
-
-      // 3️⃣ Identify receiver
-      const receiver =
-        req.user.id === connection.patient._id.toString()
-          ? connection.doctor._id
-          : connection.patient._id;
-
-      // 4️⃣ Prepare message data
-      const messageData = {
-        connection: connection._id,
-        sender: req.user.id,
-        receiver,
-        content: content.trim(),
-        isRead: false
-      };
-
-      // Add attachment info if file was uploaded
-      if (req.file) {
-        messageData.hasAttachment = true;
-        messageData.attachmentName = req.file.originalname;
-        messageData.attachmentUrl = `/uploads/messages/${req.file.filename}`;
-      }
-
-      // 5️⃣ Save message
-      const message = await Message.create(messageData);
-
-      // 6️⃣ Create notification for receiver
-      await Notification.create({
-        recipient: receiver,
-        sender: req.user.id,
-        type: "NEW_MESSAGE",
-        message: `You have a new message`,
-        relatedConnection: connection._id
+    if (isMultipart) {
+      // Use multer only if form-data (file upload)
+      upload(req, res, async (err) => {
+        if (err) {
+          console.error('❌ Multer error:', err.message);
+          return res.status(400).json({ success: false, message: err.message });
+        }
+        await handleMessage(req, res);
       });
+    } else {
+      // JSON request (text-only)
+      await handleMessage(req, res);
+    }
 
-      res.status(201).json({ 
-        success: true, 
-        message: message 
-      });
-    });
   } catch (error) {
-    console.error("Send message error:", error);
+    console.error("❌ Outer error in sendMessage:", error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       success: false, 
       message: "Error sending message", 
@@ -126,46 +67,117 @@ export const sendMessage = async (req, res) => {
   }
 };
 
+// Separate handler to reduce duplication
+const handleMessage = async (req, res) => {
+  try {
+    const { connectionId, content } = req.body;
+
+    if (!connectionId || !content?.trim()) {
+      return res.status(400).json({ success: false, message: "Connection ID and content are required" });
+    }
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    // Find the connection
+    const connection = await Connection.findOne({ _id: connectionId, status: "accepted" })
+      .populate('patient doctor', 'firstName lastName');
+
+    if (!connection) {
+      return res.status(403).json({ success: false, message: "Connection not found or not accepted" });
+    }
+
+    // Ensure sender is part of the connection
+    const isPatient = connection.patient._id.toString() === req.user.id;
+    const isDoctor = connection.doctor._id.toString() === req.user.id;
+    if (!isPatient && !isDoctor) {
+      return res.status(403).json({ success: false, message: "You are not part of this conversation" });
+    }
+
+    const receiver = isPatient ? connection.doctor._id : connection.patient._id;
+
+    const messageData = {
+      connection: connection._id,
+      sender: req.user.id,
+      receiver,
+      content: content.trim(),
+      isRead: false
+    };
+
+    // Handle file if uploaded
+    if (req.file) {
+      messageData.hasAttachment = true;
+      messageData.attachmentName = req.file.originalname;
+      messageData.attachmentUrl = `/uploads/messages/${req.file.filename}`;
+    }
+
+    const message = await Message.create(messageData);
+
+    // Create notification
+    await Notification.create({
+      recipient: receiver,
+      sender: req.user.id,
+      type: "NEW_MESSAGE",
+      message: "You have a new message",
+      relatedConnection: connection._id
+    });
+
+    res.status(201).json({ success: true, message });
+
+  } catch (err) {
+    console.error('❌ Error in handleMessage:', err);
+    res.status(500).json({ success: false, message: "Error processing message", error: err.message });
+  }
+};
+
+
 // Get messages for a connection
 export const getMessages = async (req, res) => {
   try {
     const { connectionId } = req.params;
 
-    // 1️⃣ Validate connection
+    console.log('📥 Getting messages for connection:', connectionId);
+
+    // Validate connection
     const connection = await Connection.findOne({
       _id: connectionId,
       status: "accepted"
     });
 
     if (!connection) {
+      console.error('❌ Connection not found:', connectionId);
       return res.status(403).json({ 
         success: false, 
         message: "Access denied - connection not found or not accepted" 
       });
     }
 
-    // 2️⃣ Ensure user belongs to the connection
+    // Ensure user belongs to the connection
     if (
       connection.patient.toString() !== req.user.id &&
       connection.doctor.toString() !== req.user.id
     ) {
+      console.error('❌ User not part of connection');
       return res.status(403).json({ 
         success: false, 
         message: "You are not part of this conversation" 
       });
     }
 
-    // 3️⃣ Fetch messages
+    // Fetch messages
     const messages = await Message.find({ connection: connectionId })
       .populate('sender receiver', 'firstName lastName role')
       .sort({ createdAt: 1 });
+
+    console.log('✅ Found messages:', messages.length);
 
     res.json({ 
       success: true, 
       messages 
     });
   } catch (error) {
-    console.error("Get messages error:", error);
+    console.error("❌ Get messages error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Error fetching messages", 
@@ -179,6 +191,8 @@ export const getConversations = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    console.log('📋 Getting conversations for user:', userId);
+
     // Find all accepted connections for this user
     const connections = await Connection.find({
       $or: [{ patient: userId }, { doctor: userId }],
@@ -186,6 +200,8 @@ export const getConversations = async (req, res) => {
     })
     .populate('patient doctor', 'firstName lastName role')
     .sort({ updatedAt: -1 });
+
+    console.log('✅ Found connections:', connections.length);
 
     // Build conversations with last message info
     const conversations = await Promise.all(
@@ -216,17 +232,19 @@ export const getConversations = async (req, res) => {
           lastMessage: lastMessage ? lastMessage.content : 'No messages yet',
           lastMessageTime: lastMessage ? lastMessage.createdAt : conn.createdAt,
           unreadCount,
-          online: false // TODO: Implement online status with WebSocket
+          online: false
         };
       })
     );
+
+    console.log('✅ Built conversations:', conversations.length);
 
     res.json({ 
       success: true, 
       conversations 
     });
   } catch (error) {
-    console.error("Get conversations error:", error);
+    console.error("❌ Get conversations error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Error fetching conversations", 
@@ -240,6 +258,8 @@ export const markAsRead = async (req, res) => {
   try {
     const { connectionId } = req.params;
     const userId = req.user.id;
+
+    console.log('✓ Marking messages as read:', connectionId);
 
     // Validate connection
     const connection = await Connection.findOne({
@@ -266,7 +286,7 @@ export const markAsRead = async (req, res) => {
     }
 
     // Mark all messages as read
-    await Message.updateMany(
+    const result = await Message.updateMany(
       {
         connection: connectionId,
         receiver: userId,
@@ -275,12 +295,14 @@ export const markAsRead = async (req, res) => {
       { isRead: true }
     );
 
+    console.log('✅ Marked messages as read:', result.modifiedCount);
+
     res.json({ 
       success: true, 
       message: "Messages marked as read" 
     });
   } catch (error) {
-    console.error("Mark as read error:", error);
+    console.error("❌ Mark as read error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Error marking messages as read", 
@@ -304,7 +326,7 @@ export const getUnreadCount = async (req, res) => {
       unreadCount 
     });
   } catch (error) {
-    console.error("Get unread count error:", error);
+    console.error("❌ Get unread count error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Error getting unread count", 
@@ -343,7 +365,7 @@ export const deleteMessage = async (req, res) => {
       message: "Message deleted" 
     });
   } catch (error) {
-    console.error("Delete message error:", error);
+    console.error("❌ Delete message error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Error deleting message", 

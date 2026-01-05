@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DoctorHeader from './doctor-header';
 
 const API_URL = 'http://192.168.1.165:5000/api';
 
@@ -138,56 +139,7 @@ export default function DoctorDashboard() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoIcon}>+</Text>
-          </View>
-          <Text style={styles.logoText}>Med-Connect</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.notificationBtn}
-            onPress={() => router.push('/(tabs)/Doctor/DoctorNotificationPage')}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#1F2937" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials()}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* NAVIGATION */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.navContainer}
-        contentContainerStyle={styles.navContent}
-      >
-        <TouchableOpacity style={styles.navTabActive}>
-          <Text style={styles.navTextActive}>Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Doctor/doctor-patients')}
-        >
-          <Text style={styles.navText}>Patients</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navTab}>
-          <Text style={styles.navText}>Schedule</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navTab}
-        onPress={() => router.push('/(tabs)/Doctor/messages')}>
-          <Text style={styles.navText}>Messages</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <DoctorHeader activeTab="Dashboard" unreadCount={2} doctorName="Jack Ling" />
 
       {/* MAIN CONTENT */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PatientHeader from './patient-header';
 // import DocumentViewer from '@/components/DocumentViewer'; // Import the DocumentViewer component
 
 // Replace with your computer's IP address
@@ -379,46 +380,8 @@ export default function MedicalRecordsPage() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       
-      {/* Navigation Bar */}
-      <View style={styles.navbar}>
-        <View style={styles.navLeft}>
-          <View style={styles.logo}>
-            <MaterialCommunityIcons name="hospital-box" size={24} color="#fff" />
-          </View>
-          <Text style={styles.logoText}>Med-Connect</Text>
-        </View>
-        
-        <View style={styles.navRight}>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Ionicons name="notifications-outline" size={24} color="#1a1a1a" />
-            <View style={styles.notificationBadge} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.userAvatar} />
-        </View>
-      </View>
-
-      {/* Navigation Tabs */}
-      <View style={styles.navigation}>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/(tabs)/Patient/patient_dashboard')}
-        >
-          <Text style={styles.navText}>Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItemActive}>
-          <Text style={styles.navTextActive}>My Records</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
-        >
-          <Text style={styles.navText}>Find Doctors</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navText}>Appointments</Text>
-        </TouchableOpacity>
-      </View>
-
+      <PatientHeader activeTab="Records" unreadCount={5}/>
+      
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Page Header */}
         <View style={styles.header}>

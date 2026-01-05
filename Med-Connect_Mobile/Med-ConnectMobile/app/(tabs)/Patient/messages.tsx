@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PatientHeader from './patient-header';
 
 const API_URL = 'http://192.168.1.165:5000/api';
 
@@ -217,55 +218,8 @@ export default function MessagesPage() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoIcon}>+</Text>
-          </View>
-          <Text style={styles.logoText}>Med-Connect</Text>
-        </View>
-        <TouchableOpacity style={styles.notificationContainer}>
-          <Ionicons name="notifications-outline" size={24} color="#1F2937" />
-          <View style={styles.badge} />
-        </TouchableOpacity>
-      </View>
-
-      {/* NAVIGATION */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.navContainer}
-        contentContainerStyle={styles.navContent}
-      >
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Patient/patient_dashboard')}
-        >
-          <Text style={styles.navTabText}>Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Patient/records')}
-        >
-          <Text style={styles.navTabText}>My Records</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
-        >
-          <Text style={styles.navTabText}>Find Doctors</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Patient/appointmentPage')}
-        >
-          <Text style={styles.navTabText}>Appointments</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navTabActive}>
-          <Text style={styles.navTabTextActive}>Messages</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <PatientHeader activeTab="Messages" unreadCount={5} />
+      
 
       {/* MAIN CONTENT */}
       <View style={styles.content}>

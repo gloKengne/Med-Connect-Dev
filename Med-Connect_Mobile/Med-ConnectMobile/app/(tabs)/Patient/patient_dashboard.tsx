@@ -6,6 +6,7 @@ import {
 import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PatientHeader from './patient-header';
 
 const API_URL = 'http://192.168.1.165:5000/api';
 
@@ -168,67 +169,8 @@ export default function PatientDashboard() {
 
   // ========== RENDER ==========
   return (
-    <View style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.logo}>
-            <MaterialCommunityIcons name="hospital-box" size={20} color="#2563eb" />
-            <Text style={styles.logoText}>Med-Connect</Text>
-          </View>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity 
-              style={styles.notificationBtn}
-              onPress={() => router.push('/(tabs)/Patient/patientNotification')}
-            >
-              <Ionicons name="notifications-outline" size={24} color="#1F2937" />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials()}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* NAVIGATION */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.navContent}
-        >
-          <TouchableOpacity style={styles.navItemActive}>
-            <Text style={styles.navTextActive}>Dashboard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.navItem}
-            onPress={() => router.push('/(tabs)/Patient/records')}
-          >
-            <Text style={styles.navText}>My Records</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.navItem}
-            onPress={() => router.push('/(tabs)/Patient/findDoctorsPage')}
-          >
-            <Text style={styles.navText}>Find Doctors</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.navItem}
-            onPress={() => router.push('/(tabs)/Patient/messages')}
-          >
-            <Text style={styles.navText}>Messages</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.navItem}
-            onPress={() => router.push('/(tabs)/Patient/appointmentPage')}
-          >
-            <Text style={styles.navText}>Appointments</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
+    <View style={styles.container}><PatientHeader activeTab="Dashboard" unreadCount={5}/>
+      
 
       {/* MAIN CONTENT */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>

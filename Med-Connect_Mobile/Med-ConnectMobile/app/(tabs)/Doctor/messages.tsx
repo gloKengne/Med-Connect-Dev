@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DoctorHeader from './doctor-header';
 
 const API_URL = 'http://192.168.1.165:5000/api';
 
@@ -190,49 +191,8 @@ export default function DoctorMessagesPage() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoIcon}>+</Text>
-          </View>
-          <Text style={styles.logoText}>Med-Connect</Text>
-        </View>
-        <TouchableOpacity style={styles.notificationContainer}>
-          <Ionicons name="notifications-outline" size={24} color="#1F2937" />
-          <View style={styles.badge} />
-        </TouchableOpacity>
-      </View>
-
-      {/* NAVIGATION */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.navContainer}
-        contentContainerStyle={styles.navContent}
-      >
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Doctor/doctor_dashboard')}
-        >
-          <Text style={styles.navTabText}>Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Doctor/doctor-patients')}
-        >
-          <Text style={styles.navTabText}>My Patients</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navTabActive}>
-          <Text style={styles.navTabTextActive}>Messages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navTab}
-        //   onPress={() => router.push('/(tabs)/Doctor/schedule')}
-        >
-          <Text style={styles.navTabText}>Schedule</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <DoctorHeader activeTab="Messages" unreadCount={2} doctorName="Jack Ling" />
+      
 
       {/* MAIN CONTENT */}
       <View style={styles.content}>

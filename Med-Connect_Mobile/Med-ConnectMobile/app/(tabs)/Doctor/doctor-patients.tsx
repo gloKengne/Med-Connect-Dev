@@ -4,6 +4,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, SafeAreaView, Sta
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DoctorHeader from './doctor-header';
 
 const API_URL = 'http://192.168.1.165:5000/api';
 
@@ -142,60 +143,8 @@ export default function DoctorPatientsPage() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoIcon}>+</Text>
-          </View>
-          <Text style={styles.logoText}>Med-Connect</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity 
-            style={styles.notificationContainer}
-            onPress={() => router.push('/(tabs)/Doctor/DoctorNotificationPage')}
-          >
-            <Ionicons name="notifications-outline" size={24} color="#1F2937" />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <View style={styles.profileContainer}>
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileInitial}>D</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Navigation */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.navContainer}
-        contentContainerStyle={styles.navContent}
-      >
-        <TouchableOpacity 
-          style={styles.navTab}
-          onPress={() => router.push('/(tabs)/Doctor/doctor_dashboard')}
-        >
-          <Text style={styles.navTabText}>Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navTabActive}>
-          <Text style={styles.navTabTextActive}>Patients</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navTab}>
-          <Text style={styles.navTabText}>Schedule</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navTab}>
-          <Text style={styles.navTabText}>Messages</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
+      <DoctorHeader activeTab="Patients" unreadCount={2} doctorName="Jack Ling" />
+      
       {/* Main Content */}
       {loading ? (
         <View style={styles.loadingContainer}>

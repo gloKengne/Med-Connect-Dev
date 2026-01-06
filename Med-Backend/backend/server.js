@@ -19,7 +19,13 @@ import availabilityRoutes from "./routes/availability.routes.js";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:4200",           // for local dev
+    "https://your-frontend.netlify.app" // replace with your actual deployed frontend URL
+  ],
+  credentials: true
+}));
 app.use(bodyParser.json());
 
 connectDb(); 

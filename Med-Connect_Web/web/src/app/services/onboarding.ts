@@ -13,7 +13,7 @@ export interface DaySchedule {
 }
 
 export interface AvailabilityData {
-  schedule: Record<string, DaySchedule>;
+  schedule: Record<string, TimeSlot[]>;
   slotDuration: number;
   location: string;
   bufferTime: number;
@@ -33,16 +33,16 @@ export interface OnboardingData {
 })
 export class OnboardingService { 
 
-  private currentStepSubject = new BehaviorSubject<number>(1);
+ private currentStepSubject = new BehaviorSubject<number>(1);
   currentStep$ = this.currentStepSubject.asObservable();
 
   private openSubject = new BehaviorSubject<boolean>(false);
   open$ = this.openSubject.asObservable();
 
-  // Store onboarding data
+  // Store onboarding data IN MEMORY ONLY
   private onboardingData: OnboardingData = {};
   
-  // Track completion in memory instead of localStorage
+  // Track completion in memory
   private onboardingComplete = false;
 
   open() {
@@ -62,30 +62,36 @@ export class OnboardingService {
     return this.currentStep$;
   }
 
-  // Methods to save data from each step
+  // Save step data (in memory only)
   saveStep1Data(data: Partial<OnboardingData>) {
     this.onboardingData = { ...this.onboardingData, ...data };
+    console.log('💾 Step1 data saved in memory:', this.onboardingData);
   }
 
   saveStep2Data(data: Partial<OnboardingData>) {
     this.onboardingData = { ...this.onboardingData, ...data };
+    console.log('💾 Step2 data saved in memory:', this.onboardingData);
   }
 
   saveStep3Data(data: Partial<OnboardingData>) {
     this.onboardingData = { ...this.onboardingData, ...data };
+    console.log('💾 Step3 data saved in memory:', this.onboardingData);
   }
 
   getOnboardingData(): OnboardingData {
-  const raw = localStorage.getItem('onboardingData');
-  return raw ? JSON.parse(raw) : {};
+    return { ...this.onboardingData };
   }
 
   clearData() {
     this.onboardingData = {};
+    console.log('🗑️ Onboarding data cleared');
   }
 
   markComplete() {
     this.onboardingComplete = true;
+    // Clear saved data after completion
+    this.clearData();
+    console.log('✅ Onboarding marked complete');
   }
 
   isComplete(): boolean {
@@ -107,6 +113,22 @@ export class OnboardingService {
     if (step > 1) {
       this.currentStepSubject.next(step - 1);
     }
+  }
+  
+  /**
+   * Load existing doctor profile data into onboarding flow
+   * Useful when doctor wants to edit their profile through onboarding
+   */
+  loadExistingProfile(doctorData: any) {
+    this.onboardingData = {
+      specialty: doctorData.specialty || '',
+      phone: doctorData.phone || '',
+      hospital: doctorData.hospital || '',
+      yearsOfExperience: doctorData.yearsOfExperience || 0,
+      consultationFee: doctorData.consultationFee || 0,
+      bio: doctorData.bio || ''
+    };
+    console.log('📋 Existing profile loaded into onboarding:', this.onboardingData);
   }
   
 }

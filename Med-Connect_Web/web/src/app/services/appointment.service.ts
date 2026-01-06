@@ -62,18 +62,13 @@ export class AppointmentService {
     });
   }
 
-  getDoctorAvailability(doctorId: string, date: string): Observable<AppointmentResponse> {
-    console.log('📅 Getting availability for doctor:', doctorId, 'on', date);
-    
-    return this.http.get<AppointmentResponse>(
+  // Get doctor's availability for a specific date
+  // FIXED: Updated to match backend route pattern /doctor/:doctorId/availability
+  getDoctorAvailability(doctorId: string, date: string): Observable<any> {
+    console.log('📅 Getting availability for doctor:', doctorId, 'on date:', date);
+    return this.http.get<any>(
       `${this.apiUrl}/doctor/${doctorId}/availability?date=${date}`,
       { headers: this.getHeaders() }
-    ).pipe(
-      tap(response => console.log('✅ Availability response:', response)),
-      catchError(error => {
-        console.error('❌ Get availability error:', error);
-        return throwError(() => error);
-      })
     );
   }
 

@@ -43,12 +43,14 @@ export class Step3 {
     // Get all onboarding data
     const profileData = this.onboardingService.getOnboardingData();
 
-    console.log('📝 Submitting profile data:', profileData);
+  const { availability, ...profileWithoutAvailability } = profileData;
+
+    console.log('ðŸ“ Submitting profile data:', profileData);
 
     // Step 1: Update doctor profile
-    this.doctorProfileService.updateProfile(profileData).subscribe({
+     this.doctorProfileService.updateProfile(profileWithoutAvailability).subscribe({
       next: (response) => {
-        console.log('✅ Profile updated:', response);
+        console.log('âœ… Profile updated:', response);
         
         if (response.success) {
           // Step 2: Save availability settings if they exist
@@ -60,7 +62,7 @@ export class Step3 {
         }
       },
       error: (error) => {
-        console.error('❌ Error saving profile:', error);
+        console.error('âŒ Error saving profile:', error);
         this.isSubmitting = false;
         alert('Failed to save profile. Please try again.');
       }
@@ -74,7 +76,7 @@ export class Step3 {
       'Authorization': `Bearer ${token}`
     });
 
-    console.log('📅 Saving availability:', availabilityData);
+    console.log('ðŸ“… Saving availability:', availabilityData);
 
     this.http.put(
       'http://localhost:5000/api/availability/settings',
@@ -82,11 +84,11 @@ export class Step3 {
       { headers }
     ).subscribe({
       next: (response: any) => {
-        console.log('✅ Availability saved:', response);
+        console.log('âœ… Availability saved:', response);
         this.completeOnboarding();
       },
       error: (error) => {
-        console.error('❌ Error saving availability:', error);
+        console.error('âŒ Error saving availability:', error);
         // Continue with onboarding even if availability fails
         this.completeOnboarding();
       }
@@ -96,7 +98,7 @@ export class Step3 {
   completeOnboarding(): void {
     this.doctorProfileService.completeOnboarding().subscribe({
       next: (completeResponse) => {
-        console.log('✅ Onboarding complete:', completeResponse);
+        console.log('âœ… Onboarding complete:', completeResponse);
         this.isSubmitting = false;
         
         // Update localStorage with verified user
@@ -107,7 +109,7 @@ export class Step3 {
         this.onboardingService.nextStep(); // Go to success step
       },
       error: (error) => {
-        console.error('❌ Error completing onboarding:', error);
+        console.error('âŒ Error completing onboarding:', error);
         this.isSubmitting = false;
         alert('Profile saved but failed to complete onboarding');
       }

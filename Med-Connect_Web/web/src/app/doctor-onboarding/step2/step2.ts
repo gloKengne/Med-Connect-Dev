@@ -23,8 +23,7 @@ interface DaySchedule {
   styleUrl: './step2.css',
 })
 export class Step2 {
-
-  schedule: Record<string, DaySchedule> = {
+ schedule: Record<string, DaySchedule> = {
     monday: { isOpen: true, slots: [{ start: '09:00', end: '17:00' }] },
     tuesday: { isOpen: true, slots: [{ start: '09:00', end: '17:00' }] },
     wednesday: { isOpen: true, slots: [{ start: '09:00', end: '17:00' }] },
@@ -44,34 +43,59 @@ export class Step2 {
     { key: 'sunday', label: 'Sunday' }
   ];
 
-  slotDuration: number = 30; // minutes
+  slotDuration: number = 30;
   location: string = '';
 
   constructor(private onboardingService: OnboardingService) {}
 
   ngOnInit(): void {
-    // Load any previously saved data
     const savedData = this.onboardingService.getOnboardingData();
 
-  if (savedData.availability) {
-    const schedule = savedData.availability.schedule;
+    if (savedData.availability) {
+     let scheduleData: Record<string, TimeSlot[] | DaySchedule> =
+      savedData.availability.schedule;
 
-    if (typeof schedule === 'string') {
-      this.schedule = JSON.parse(schedule);
-    } else {
-      this.schedule = schedule;
+      // Handle if schedule is stored as JSON string
+      if (typeof scheduleData === 'string') {
+        try {
+          scheduleData = JSON.parse(scheduleData);
+        } catch (e) {
+          console.error('Error parsing schedule:', e);
+          scheduleData = this.schedule; // Use default
+        }
+      }
+
+      // Convert schedule format if needed (backend format to UI format)
+      const convertedSchedule: Record<string, DaySchedule> = {};
+      
+      for (const [day, value] of Object.entries(scheduleData)) {
+        if (Array.isArray(value)) {
+          // Backend format: day: [{start, end}] or []
+          convertedSchedule[day] = {
+            isOpen: value.length > 0,
+            slots: value.length > 0 ? value : []
+          };
+        } else if (value && typeof value === 'object' && 'isOpen' in value) {
+          // UI format: day: {isOpen, slots}
+          convertedSchedule[day] = value as DaySchedule;
+        } else {
+          // Default
+          convertedSchedule[day] = { isOpen: false, slots: [] };
+        }
+      }
+
+      this.schedule = convertedSchedule;
+      this.slotDuration = Number(savedData.availability.slotDuration) || 30;
+      this.location = savedData.availability.location ?? '';
     }
 
-   this.slotDuration = Number(savedData.availability.slotDuration) || 30;
-    this.location = savedData.availability.location ?? '';
-  }
+    console.log('📋 Step2: Loaded schedule:', this.schedule);
   }
 
   toggleDay(dayKey: string): void {
     this.schedule[dayKey].isOpen = !this.schedule[dayKey].isOpen;
     
     if (this.schedule[dayKey].isOpen && this.schedule[dayKey].slots.length === 0) {
-      // Add default slot when opening a day
       this.schedule[dayKey].slots = [{ start: '09:00', end: '17:00' }];
     }
   }
@@ -79,7 +103,7 @@ export class Step2 {
   addSlot(dayKey: string): void {
     const lastSlot = this.schedule[dayKey].slots[this.schedule[dayKey].slots.length - 1];
     const newStart = lastSlot ? lastSlot.end : '09:00';
-    const newEnd = this.addMinutesToTime(newStart, 60); // Default 1 hour slot
+    const newEnd = this.addMinutesToTime(newStart, 60);
     
     this.schedule[dayKey].slots.push({ start: newStart, end: newEnd });
   }
@@ -101,21 +125,18 @@ export class Step2 {
   }
 
   isValidSchedule(): boolean {
-    // Check if at least one day is open
     const hasOpenDay = Object.values(this.schedule).some(day => day.isOpen);
     
     if (!hasOpenDay) {
       return false;
     }
 
-    // Validate all time slots
     for (const day of Object.values(this.schedule)) {
       if (day.isOpen) {
         for (const slot of day.slots) {
           if (!slot.start || !slot.end) {
             return false;
           }
-          // Check that end time is after start time
           if (slot.start >= slot.end) {
             return false;
           }
@@ -145,27 +166,30 @@ export class Step2 {
       return;
     }
 
-    // Convert schedule to the format needed for backend
-    const formattedSchedule: any = {};
+    // Convert to backend format (day: array of slots)
+    const backendSchedule: Record<string, TimeSlot[]> = {};
     for (const [key, value] of Object.entries(this.schedule)) {
-      formattedSchedule[key] = value.isOpen ? value.slots : [];
+      backendSchedule[key] = value.isOpen ? value.slots : [];
     }
 
     this.onboardingService.saveStep2Data({
       availability: {
-        schedule: formattedSchedule,
+        schedule: backendSchedule,
         slotDuration: this.slotDuration,
         location: this.location,
         bufferTime: 0
       }
     });
     
+    console.log('💾 Step2: Saved availability:', backendSchedule);
     this.onboardingService.nextStep();
   }
 
   getDayStatus(dayKey: string): string {
     const day = this.schedule[dayKey];
-    if (!day.isOpen) return 'Closed';
+    if (!day || !day.isOpen) return 'Closed';
+    
+    if (!day.slots || day.slots.length === 0) return 'Closed';
     
     return day.slots.map(slot => `${slot.start} - ${slot.end}`).join(', ');
   }

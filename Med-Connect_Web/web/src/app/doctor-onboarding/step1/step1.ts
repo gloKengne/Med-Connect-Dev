@@ -12,7 +12,6 @@ import { OnboardingService } from '../../services/onboarding';
 })
 export class Step1 {
 
-  
   specialty = '';
   phone = '';
   hospital = '';
@@ -20,6 +19,29 @@ export class Step1 {
   fee = 0;
 
   constructor(private onboardingService: OnboardingService) {}
+
+  ngOnInit(): void {
+    // Load any previously saved data
+    const savedData = this.onboardingService.getOnboardingData();
+    
+    if (savedData.specialty) {
+      this.specialty = savedData.specialty;
+    }
+    if (savedData.phone) {
+      this.phone = savedData.phone;
+    }
+    if (savedData.hospital) {
+      this.hospital = savedData.hospital;
+    }
+    if (savedData.yearsOfExperience !== undefined) {
+      this.experience = savedData.yearsOfExperience;
+    }
+    if (savedData.consultationFee !== undefined) {
+      this.fee = savedData.consultationFee;
+    }
+
+    console.log('📋 Step1: Loaded data:', savedData);
+  }
 
   close() {
     this.onboardingService.close();
@@ -40,6 +62,7 @@ export class Step1 {
       consultationFee: this.fee
     });
 
+    console.log('💾 Step1: Data saved');
     this.onboardingService.nextStep();
   }
 

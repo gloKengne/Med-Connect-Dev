@@ -8,7 +8,6 @@ export interface DoctorProfileData {
   hospital?: string;
   yearsOfExperience?: number;
   consultationFee?: number;
-  availability?: Record<string, string>;
   bio?: string;
 }
 

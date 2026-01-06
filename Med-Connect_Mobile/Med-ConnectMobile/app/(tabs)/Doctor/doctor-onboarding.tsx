@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAr
 import { useLocalSearchParams, router } from 'expo-router';
 
 // CHANGE: Using localhost for Web testing to avoid connection refused
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://192.168.1.165:5000/api';
 
 export default function OnboardingPage() {
   const { token } = useLocalSearchParams(); 

@@ -1,16 +1,11 @@
-// controllers/documentController.js
+import express from "express";
+import { getMyDocuments } from "../controllers/documentController.js";
+import authMiddle from "../middleware/authMiddle.js";
 
-export const getMyDocuments = async (req, res) => {
-  try {
-    // If a patientId is provided in the URL query (by a doctor), use that.
-    // Otherwise, use the ID of the logged-in user (the patient).
-    const targetId = req.query.patientId || req.user.id;
+const router = express.Router();
 
-    const docs = await Document.find({ patientId: targetId }).sort({ docDate: -1 });
-    res.json({ success: true, documents: docs });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, error: "Could not fetch documents" });
-  }
-};
+// Route for getting documents
+router.get("/my-documents", authMiddle, getMyDocuments);
 
+// THIS IS THE MISSING LINE THAT FIXES YOUR ERROR
+export default router;

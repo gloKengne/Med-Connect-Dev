@@ -582,3 +582,61 @@
     width: 100%;
   }
 }
+
+
+/* Empty chat panel state */
+.chat-panel-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+}
+
+.chat-panel-empty h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.chat-panel-empty p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  text-align: center;
+}
+
+/* Loading state */
+.loading-state {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+}
+
+/* Empty state in conversations list */
+.conversations-list .empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+}
+
+/* Attachment info in message bubble */
+.attachment-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.message.doctor .attachment-info {
+  border-top-color: rgba(37, 99, 235, 0.2);
+}

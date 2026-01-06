@@ -1,13 +1,30 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 
+
+export interface TimeSlot {
+  start: string;
+  end: string;
+}
+
+export interface DaySchedule {
+  isOpen: boolean;
+  slots: TimeSlot[];
+}
+
+export interface AvailabilityData {
+  schedule: Record<string, DaySchedule>;
+  slotDuration: number;
+  location: string;
+  bufferTime: number;
+}
 export interface OnboardingData {
   specialty?: string;
   phone?: string;
   hospital?: string;
   yearsOfExperience?: number;
   consultationFee?: number;
-  availability?: Record<string, string>;
+  availability?: AvailabilityData;
   bio?: string;
 }
 
@@ -59,7 +76,8 @@ export class OnboardingService {
   }
 
   getOnboardingData(): OnboardingData {
-    return this.onboardingData;
+  const raw = localStorage.getItem('onboardingData');
+  return raw ? JSON.parse(raw) : {};
   }
 
   clearData() {

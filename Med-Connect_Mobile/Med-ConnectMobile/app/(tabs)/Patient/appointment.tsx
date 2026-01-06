@@ -1,51 +1,116 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Modal, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PatientHeader from './patient-header';
 
+// Replace with your actual network IP
+const API_URL = "http://192.168.1.165:5000/api"; 
+
+interface Appointment {
+  _id: string;
+  date: string;
+  startTime: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'rejected';
+  location?: string;
+  doctor?: {
+    lastName: string;
+    specialty?: string;
+  };
+}
 
 export default function AppointmentPage() {
   const [activeTab, setActiveTab] = useState('Upcoming');
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [userData, setUserData] = useState({ firstName: '', lastName: '' });
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedApptId, setSelectedApptId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // 1. Fetch real user data for the Header initials
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem('user');
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          setUserData({
-            firstName: parsed.firstName || '',
-            lastName: parsed.lastName || ''
-          });
-        }
-      } catch (error) {
-        console.error("Error loading user for header:", error);
-      }
-    };
-    fetchUser();
+    fetchInitialData();
   }, []);
 
-  const handleCancelAction = () => {
-    setShowCancelModal(true);
+  const fetchInitialData = async () => {
+    try {
+      setLoading(true);
+      const storedUser = await AsyncStorage.getItem('user');
+      const token = await AsyncStorage.getItem('authToken');
+
+      if (storedUser) {
+        setUserData(JSON.parse(storedUser));
+      }
+
+      // Fetch appointments from backend
+      const response = await fetch(`${API_URL}/appointments/patient`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setAppointments(data.appointments);
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+      Alert.alert("Error", "Could not load appointments");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const confirmCancellation = () => {
-    setShowCancelModal(false);
-    Alert.alert("Success", "Appointment cancelled successfully.");
+  const handleCancelAction = (id: string) => {
+  setSelectedApptId(id);
+  setShowCancelModal(true);
+};
+
+  const confirmCancellation = async () => {
+    if (!selectedApptId) return;
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/appointments/${selectedApptId}/cancel`, {
+        method: 'PATCH',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason: "User cancelled via app" })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setShowCancelModal(false);
+        Alert.alert("Success", "Appointment cancelled.");
+        fetchInitialData(); // Refresh list
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to cancel appointment");
+    }
+  };
+
+  // Helper to filter appointments based on tab
+  const filteredAppointments = appointments.filter(appt => {
+    const isPast = new Date(appt.date) < new Date();
+    return activeTab === 'Upcoming' ? !isPast : isPast;
+  });
+
+  // Helper for Status Badge Colors
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'pending': return { bg: '#fff7ed', text: '#c2410c' }; // Orange
+      case 'confirmed': return { bg: '#ecfdf5', text: '#059669' }; // Green
+      case 'rejected':
+      case 'cancelled': return { bg: '#fef2f2', text: '#ef4444' }; // Red
+      default: return { bg: '#f1f5f9', text: '#475569' };
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* THE PATIENT HEADER COMPONENT */}
       <PatientHeader 
         activeTab="Appointments" 
         firstName={userData.firstName} 
         lastName={userData.lastName} 
-        unreadCount={2} 
+        unreadCount={0} 
       />
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -73,49 +138,63 @@ export default function AppointmentPage() {
           </TouchableOpacity>
         </View>
 
-        {/* APPOINTMENT CARD */}
-        <View style={styles.appointmentCard}>
-          <View style={styles.cardHeader}>
-            <View style={styles.doctorAvatar}>
-              <Ionicons name="person" size={24} color="#2563eb" />
-            </View>
-            <View style={styles.doctorDetails}>
-              <View style={styles.nameBadgeRow}>
-                <Text style={styles.drNameText}>Dr. Emily Chen</Text>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusText}>Confirmed</Text>
+        {loading ? (
+          <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 50 }} />
+        ) : filteredAppointments.length === 0 ? (
+          <Text style={styles.emptyText}>No {activeTab.toLowerCase()} appointments found.</Text>
+        ) : (
+          filteredAppointments.map((appt) => (
+            <View key={appt._id} style={styles.appointmentCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.doctorAvatar}>
+                  <Ionicons name="person" size={24} color="#2563eb" />
+                </View>
+                <View style={styles.doctorDetails}>
+                  <View style={styles.nameBadgeRow}>
+                    <Text style={styles.drNameText}>Dr. {appt.doctor?.lastName}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(appt.status).bg }]}>
+                      <Text style={[styles.statusText, { color: getStatusStyle(appt.status).text }]}>
+                        {appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.drSpecialtyText}>{appt.doctor?.specialty || 'General Practitioner'}</Text>
                 </View>
               </View>
-              <Text style={styles.drSpecialtyText}>Cardiologist</Text>
-            </View>
-          </View>
 
-          <View style={styles.dateTimeGrid}>
-            <View style={styles.gridItem}>
-              <Ionicons name="calendar-outline" size={16} color="#64748b" />
-              <Text style={styles.gridText}>Sat, Nov 15, 2025</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Ionicons name="time-outline" size={16} color="#64748b" />
-              <Text style={styles.gridText}>10:00 AM</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Ionicons name="location-outline" size={16} color="#64748b" />
-              <Text style={styles.gridText}>City Hospital</Text>
-            </View>
-          </View>
+              <View style={styles.dateTimeGrid}>
+                <View style={styles.gridItem}>
+                  <Ionicons name="calendar-outline" size={16} color="#64748b" />
+                  <Text style={styles.gridText}>{new Date(appt.date).toLocaleDateString()}</Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Ionicons name="time-outline" size={16} color="#64748b" />
+                  <Text style={styles.gridText}>{appt.startTime}</Text>
+                </View>
+                <View style={styles.gridItem}>
+                  <Ionicons name="location-outline" size={16} color="#64748b" />
+                  <Text style={styles.gridText}>{appt.location || 'Online/Clinic'}</Text>
+                </View>
+              </View>
 
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity style={styles.msgButton}>
-              <Ionicons name="chatbubble-outline" size={18} color="#2563eb" />
-              <Text style={styles.msgButtonText}>Message</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancelAction}>
-              <Ionicons name="close-outline" size={20} color="#ef4444" />
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+              {appt.status !== 'cancelled' && (
+                <View style={styles.buttonGroup}>
+                  <TouchableOpacity style={styles.msgButton}>
+                    <Ionicons name="chatbubble-outline" size={18} color="#2563eb" />
+                    <Text style={styles.msgButtonText}>Message</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.cancelButton} 
+                    onPress={() => handleCancelAction(appt._id)}
+                  >
+                    <Ionicons name="close-outline" size={20} color="#ef4444" />
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))
+        )}
       </ScrollView>
 
       {/* CANCELLATION MODAL */}
@@ -124,7 +203,7 @@ export default function AppointmentPage() {
           <View style={styles.modalBody}>
             <Ionicons name="alert-circle" size={50} color="#ef4444" style={{marginBottom: 10}} />
             <Text style={styles.modalTitle}>Cancel Appointment?</Text>
-            <Text style={styles.modalDesc}>Are you sure you want to cancel this visit? This cannot be undone.</Text>
+            <Text style={styles.modalDesc}>Are you sure you want to cancel this visit?</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.keepBtn} onPress={() => setShowCancelModal(false)}>
                 <Text style={styles.keepBtnText}>No, Keep it</Text>
@@ -147,13 +226,15 @@ const styles = StyleSheet.create({
   titleText: { fontSize: 26, fontWeight: '800', color: '#1e293b' },
   subtitleText: { fontSize: 15, color: '#64748b' },
 
+  emptyText: { textAlign: 'center', marginTop: 40, color: '#64748b', fontSize: 16 },
+  appointmentCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#f1f5f9', elevation: 2, marginBottom: 15 },
+
   tabWrapper: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, padding: 5, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, gap: 8 },
   tabBtnActive: { backgroundColor: '#2563eb' },
   tabLabel: { fontSize: 15, fontWeight: '600', color: '#64748b' },
   tabLabelActive: { color: '#fff' },
 
-  appointmentCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#f1f5f9', elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 15 },
   doctorAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
   

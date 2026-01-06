@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { FilterPipe } from '../../shared/pipes/filter.pipe'; 
 import { SharedHeader } from '../../features/shared-header/shared-header';
 import { ConnectionService, Connection } from '../../services/connection';
+import { MessageService } from '../../services/message';
 
 interface Patient {
   id: string;
@@ -16,6 +17,7 @@ interface Patient {
   status: 'Active' | 'Follow-up' | 'Critical';
   email?: string;
   phone?: string;
+  connectionId?: string;
 }
 
 @Component({
@@ -37,7 +39,8 @@ export class Patients {
 
   constructor(
     private router: Router,
-    private connectionService: ConnectionService
+    private connectionService: ConnectionService,
+    private messageService: MessageService
   ) {}
 
   ngOnInit(): void {
@@ -134,7 +137,8 @@ export class Patients {
       lastVisit: this.formatDate(connection.updatedAt),
       status: 'Active',
       email: patient.email,
-      phone: patient.phone
+      phone: patient.phone,
+      connectionId: connection._id // Store connection ID for messaging
     };
     
     console.log('✅ Mapped patient:', mappedPatient);
@@ -208,28 +212,83 @@ export class Patients {
     const patient = this.patients.find(p => p.id === patientId);
     
     if (patient) {
+      if (!patient.connectionId) {
+        console.error('❌ Connection ID not found for patient:', patientId);
+        alert('Connection ID not found. Please refresh the page.');
+        return;
+      }
+      
+      console.log('✅ Patient found with connection ID:', patient.connectionId);
       this.selectedPatient = patient;
       this.messageText = '';
       this.showMessageModal = true;
     } else {
       console.error('❌ Patient not found:', patientId);
+      alert('Patient not found. Please try again.');
     }
   }
 
   closeMessageModal() {
+    console.log('❌ Closing message modal');
     this.showMessageModal = false;
     this.selectedPatient = null;
     this.messageText = '';
   }
 
   sendMessage() {
-    if (this.messageText.trim() && this.selectedPatient) {
-      console.log('📤 Sending message to:', this.selectedPatient.name, this.messageText);
-      // TODO: Implement actual message sending via messaging service
-      alert('Message sent successfully!');
-      this.messageText = '';
-      this.closeMessageModal();
+    if (!this.messageText.trim() || !this.selectedPatient || !this.selectedPatient.connectionId) {
+      console.warn('⚠️ Cannot send: missing message or connection');
+      if (!this.messageText.trim()) {
+        alert('Please enter a message.');
+      } else if (!this.selectedPatient?.connectionId) {
+        alert('Connection not found. Please try again.');
+      }
+      return;
     }
+
+    console.log('📤 Sending message:', {
+      connectionId: this.selectedPatient.connectionId,
+      message: this.messageText,
+      patient: this.selectedPatient.name
+    });
+
+    this.messageService.sendMessage(
+      this.selectedPatient.connectionId,
+      this.messageText.trim()
+    ).subscribe({
+      next: (response) => {
+        if (response.success) {
+          console.log('✅ Message sent successfully');
+          alert('Message sent successfully!');
+          this.messageText = '';
+          this.closeMessageModal();
+        } else {
+          console.warn('⚠️ Message send failed:', response);
+          alert('Failed to send message. Please try again.');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error sending message:', error);
+        console.error('Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
+        
+        let errorMessage = 'Failed to send message. ';
+        if (error.error && error.error.message) {
+          errorMessage += error.error.message;
+        } else if (error.status === 403) {
+          errorMessage += 'You do not have permission to send messages to this patient.';
+        } else if (error.status === 404) {
+          errorMessage += 'Connection not found.';
+        } else {
+          errorMessage += 'Please try again.';
+        }
+        
+        alert(errorMessage);
+      }
+    });
   }
  
 

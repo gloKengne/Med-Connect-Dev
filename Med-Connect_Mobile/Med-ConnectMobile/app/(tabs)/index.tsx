@@ -16,8 +16,8 @@ import { useRouter } from 'expo-router';
 export default function LandingPage() {
   const router = useRouter();
   const handleGetStarted = () => {
-    console.log('Navigate to signup');
-    router.push("/signup");
+    console.log('Navigate to signin');
+    router.push("/signin");
   };
 
   

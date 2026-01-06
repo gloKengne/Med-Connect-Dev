@@ -162,7 +162,7 @@
     </div>
   </main>
 
-  <!-- Message Modal (keep existing) -->
+  <!-- Message Modal -->
   <div class="modal-overlay" *ngIf="showMessageModal" (click)="closeMessageModal()">
     <div class="modal-content message-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
@@ -190,5 +190,113 @@
     </div>
   </div>
 
-  <!-- Booking Modal (keep existing booking modal code) -->
+  <!-- Booking Modal -->
+  <div class="modal-overlay" *ngIf="showBookingModal" (click)="closeBookingModal()">
+    <div class="modal-content booking-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Book Appointment with {{ selectedDoctor ? getFullDoctorName(selectedDoctor) : '' }}</h3>
+          <p class="modal-subtitle">{{ selectedDoctor?.specialty }}</p>
+        </div>
+        <button class="btn-close" (click)="closeBookingModal()">×</button>
+      </div>
+
+      <div class="modal-body booking-body">
+        <!-- Date Selection -->
+        <div class="form-group">
+          <label class="form-label">Select Date</label>
+          <input 
+            type="date" 
+            [(ngModel)]="bookingForm.date"
+            (change)="onDateChange()"
+            [min]="minDate"
+            class="form-input"
+          >
+        </div>
+
+        <!-- Loading Slots -->
+        <div class="loading-slots" *ngIf="loadingSlots">
+          <p>Loading available time slots...</p>
+        </div>
+
+        <!-- Time Slots -->
+        <div class="form-group" *ngIf="!loadingSlots && availableSlots.length > 0">
+          <label class="form-label">Available Time Slots</label>
+          <div class="time-slots-grid">
+            <button 
+              *ngFor="let slot of availableSlots"
+              class="time-slot-btn"
+              [class.selected]="bookingForm.startTime === slot.start"
+              (click)="selectTimeSlot(slot)"
+            >
+              {{ slot.start }}
+            </button>
+          </div>
+        </div>
+
+        <!-- No Slots Available -->
+        <div class="no-slots" *ngIf="!loadingSlots && bookingForm.date && availableSlots.length === 0">
+          <p>No available time slots for this date. Please select another date.</p>
+        </div>
+
+        <!-- Appointment Type -->
+        <div class="form-group" *ngIf="bookingForm.startTime">
+          <label class="form-label">Appointment Type</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input 
+                type="radio" 
+                name="type" 
+                value="in-person"
+                [(ngModel)]="bookingForm.type"
+              >
+              <span>In-Person Visit</span>
+            </label>
+            <label class="radio-label">
+              <input 
+                type="radio" 
+                name="type" 
+                value="video"
+                [(ngModel)]="bookingForm.type"
+              >
+              <span>Video Consultation</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Reason -->
+        <div class="form-group" *ngIf="bookingForm.type">
+          <label class="form-label">Reason for Visit *</label>
+          <input 
+            type="text" 
+            [(ngModel)]="bookingForm.reason"
+            placeholder="e.g., Annual checkup, Follow-up, Consultation"
+            class="form-input"
+          >
+        </div>
+
+        <!-- Additional Notes -->
+        <div class="form-group" *ngIf="bookingForm.reason">
+          <label class="form-label">Additional Notes (Optional)</label>
+          <textarea 
+            [(ngModel)]="bookingForm.notes"
+            placeholder="Any specific concerns or information the doctor should know..."
+            rows="3"
+            class="form-textarea"
+          ></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeBookingModal()">Cancel</button>
+        <button 
+          class="btn-primary" 
+          (click)="confirmBooking()"
+          [disabled]="!isBookingFormValid()"
+        >
+          Confirm Booking
+        </button>
+      </div>
+    </div>
+  </div>
 </div>

@@ -65,7 +65,6 @@ export const respondToConnection = async (req, res) => {
     console.log('Connection ID:', connectionId);
     console.log('Action:', action);
     console.log('User ID:', req.user.id);
-    console.log('User ID Type:', typeof req.user.id);
 
     // Find connection
     const connection = await Connection.findById(connectionId);
@@ -80,9 +79,7 @@ export const respondToConnection = async (req, res) => {
 
     console.log('Connection found:', {
       doctor: connection.doctor.toString(),
-      doctorType: typeof connection.doctor,
       patient: connection.patient.toString(),
-      patientType: typeof connection.patient,
       status: connection.status
     });
 
@@ -96,10 +93,7 @@ export const respondToConnection = async (req, res) => {
 
     // Verify the logged-in doctor is the recipient
     if (connection.doctor.toString() !== req.user.id) {
-      console.log('Authorization failed:', {
-        connectionDoctor: connection.doctor.toString(),
-        requestUserId: req.user.id
-      });
+      console.log('Authorization failed');
       return res.status(403).json({ 
         success: false,
         message: "Unauthorized - You are not the recipient of this connection request" 
@@ -161,7 +155,6 @@ export const getDoctorConnections = async (req, res) => {
       status: "accepted"
     })
     .populate("patient", "firstName lastName email phone address dateOfBirth gender")
-    // .populate("records")
     .sort({ createdAt: -1 });
 
     console.log('✅ Found connections:', connections.length);
@@ -188,25 +181,38 @@ export const getDoctorConnections = async (req, res) => {
   }
 };
 
-// Get patient's connections
+// Get patient's connections - FIXED: Changed specialty field
 export const getPatientConnections = async (req, res) => {
   try {
+    console.log('📋 Fetching connections for patient:', req.user.id);
+    
     const connections = await Connection.find({
       patient: req.user.id,
       status: "accepted"
     })
-    .populate("doctor", "firstName lastName email phone address specialization")
+    .populate("doctor", "firstName lastName email phone address specialty") // Changed from specialization to specialty
     .sort({ createdAt: -1 });
+
+    console.log('✅ Found patient connections:', connections.length);
+    
+    if (connections.length > 0) {
+      console.log('Sample connection:', {
+        id: connections[0]._id,
+        doctor: connections[0].doctor,
+        status: connections[0].status
+      });
+    }
 
     res.json({
       success: true,
       connections
     });
   } catch (error) {
-    console.error("Error fetching patient connections:", error);
+    console.error("❌ Error fetching patient connections:", error);
     res.status(500).json({ 
       success: false,
-      message: "Failed to fetch connections" 
+      message: "Failed to fetch connections",
+      error: error.message 
     });
   }
 };

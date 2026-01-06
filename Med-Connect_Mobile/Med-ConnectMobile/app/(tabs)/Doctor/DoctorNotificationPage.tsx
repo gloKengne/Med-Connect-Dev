@@ -7,19 +7,19 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   SafeAreaView, 
-  StatusBar,
   ActivityIndicator,
-  RefreshControl 
+  RefreshControl,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.1.165:5000/api'; // Replace with your actual backend URL
+const API_URL = 'http://192.168.1.165:5000/api'; 
 
 interface Notification {
   _id: string;
-  type: string;
+  type: 'CONNECTION_REQUEST' | 'APPOINTMENT_REQUEST' | 'CONNECTION_ACCEPTED' | 'CONNECTION_REJECTED' | string;
   message: string;
   isRead: boolean;
   createdAt: string;
@@ -28,14 +28,15 @@ interface Notification {
     firstName: string;
     lastName: string;
   };
-  relatedConnection: {
+  relatedConnection?: {
     _id: string;
     status: string;
-    patient: {
-      _id: string;
-      firstName: string;
-      lastName: string;
-    };
+  };
+  relatedAppointment?: {
+    _id: string;
+    status: string;
+    date: string;
+    startTime: string;
   };
 }
 
@@ -45,9 +46,6 @@ export default function DoctorNotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [alertVisible, setAlertVisible] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertType, setAlertType] = useState('success');
 
   useEffect(() => {
     fetchNotifications();
@@ -56,369 +54,174 @@ export default function DoctorNotificationsPage() {
   const fetchNotifications = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-      
-      if (!token) {
-        showAlert('Please login first', 'error');
-        return;
-      }
-
-      console.log('📬 Fetching notifications...');
-
       const response = await fetch(`${API_URL}/notifications`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-
       const data = await response.json();
-      console.log('📦 Notifications data:', data);
-
-      if (data.success) {
-        setNotifications(data.notifications);
-        console.log('✅ Loaded notifications:', data.notifications.length);
-      } else {
-        showAlert(data.message || 'Failed to fetch notifications', 'error');
-      }
+      if (data.success) setNotifications(data.notifications);
     } catch (error) {
-      console.error('💥 Error fetching notifications:', error);
-      showAlert('Error loading notifications', 'error');
+      console.error('Error fetching notifications:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchNotifications();
-  };
-
-  const markAsRead = async (notificationId: string) => {
+  // --- HANDLER FOR APPOINTMENTS ---
+  const handleAppointmentResponse = async (appointmentId: string, action: 'confirmed' | 'rejected', notificationId: string) => {
     try {
+      setProcessingId(appointmentId);
       const token = await AsyncStorage.getItem('authToken');
-      
-      await fetch(`${API_URL}/notifications/${notificationId}/read`, {
+      const response = await fetch(`${API_URL}/appointments/${appointmentId}/respond`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ status: action })
       });
 
-      // Update local state
-      setNotifications(prev =>
-        prev.map(notif =>
-          notif._id === notificationId ? { ...notif, isRead: true } : notif
-        )
-      );
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert("Success", `Appointment ${action}`);
+        await markAsRead(notificationId);
+        fetchNotifications();
+      }
     } catch (error) {
-      console.error('Error marking as read:', error);
+      Alert.alert("Error", "Failed to process appointment");
+    } finally {
+      setProcessingId(null);
     }
   };
 
+  // --- HANDLER FOR CONNECTIONS (RESTORED) ---
   const handleConnectionResponse = async (connectionId: string, action: 'accept' | 'reject', notificationId: string) => {
     try {
       setProcessingId(connectionId);
       const token = await AsyncStorage.getItem('authToken');
-      
-      if (!token) {
-        showAlert('Please login first', 'error');
-        return;
-      }
-
-      console.log(`📝 ${action}ing connection:`, connectionId);
-
+      // Using the route from your backend: /api/connections/:id/respond
       const response = await fetch(`${API_URL}/connections/${connectionId}/respond`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action })
+        body: JSON.stringify({ action: action })
       });
 
       const data = await response.json();
-      console.log('Response data:', data);
-
       if (data.success) {
-        showAlert(
-          action === 'accept' 
-            ? 'Connection accepted successfully!' 
-            : 'Connection request declined',
-          'success'
-        );
-        
-        // Mark notification as read
+        Alert.alert("Success", `Connection ${action}ed`);
         await markAsRead(notificationId);
-        
-        // Refresh notifications
         fetchNotifications();
-      } else {
-        showAlert(data.message || `Failed to ${action} connection`, 'error');
       }
     } catch (error) {
-      console.error(`💥 Error ${action}ing connection:`, error);
-      showAlert(`Error ${action}ing connection`, 'error');
+      Alert.alert("Error", "Failed to process connection request");
     } finally {
       setProcessingId(null);
     }
   };
 
-  const markAllAsRead = async () => {
+  const markAsRead = async (notificationId: string) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-      
-      await fetch(`${API_URL}/notifications/mark-all-read`, {
+      await fetch(`${API_URL}/notifications/${notificationId}/read`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-
-      setNotifications(prev =>
-        prev.map(notif => ({ ...notif, isRead: true }))
-      );
-      
-      showAlert('All notifications marked as read', 'success');
+      setNotifications(prev => prev.map(n => n._id === notificationId ? { ...n, isRead: true } : n));
     } catch (error) {
-      console.error('Error marking all as read:', error);
-      showAlert('Error marking notifications as read', 'error');
+      console.error(error);
     }
-  };
-
-  const showAlert = (message: string, type = 'success') => {
-    setAlertMessage(message);
-    setAlertType(type);
-    setAlertVisible(true);
-    setTimeout(() => {
-      setAlertVisible(false);
-    }, 3000);
   };
 
   const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    if (seconds < 60) return 'Just now';
+    const seconds = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 1000);
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-    return date.toLocaleDateString();
+    return new Date(dateString).toLocaleDateString();
   };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'CONNECTION_REQUEST':
-        return { name: 'person-add', color: '#2563EB', bg: '#DBEAFE' };
-      case 'CONNECTION_ACCEPTED':
-        return { name: 'checkmark-circle', color: '#10B981', bg: '#D1FAE5' };
-      case 'CONNECTION_REJECTED':
-        return { name: 'close-circle', color: '#EF4444', bg: '#FEE2E2' };
-      default:
-        return { name: 'notifications', color: '#6B7280', bg: '#F3F4F6' };
-    }
-  };
-
-  const pendingNotifications = notifications.filter(
-    n => n.type === 'CONNECTION_REQUEST' && n.relatedConnection?.status === 'pending'
-  );
-  const otherNotifications = notifications.filter(
-    n => n.type !== 'CONNECTION_REQUEST' || n.relatedConnection?.status !== 'pending'
-  );
-  const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      
-      {/* Custom Alert */}
-      {alertVisible && (
-        <View style={[
-          styles.alertContainer, 
-          alertType === 'success' ? styles.alertSuccess : styles.alertError
-        ]}>
-          <View style={styles.alertContent}>
-            <Ionicons 
-              name={alertType === 'success' ? 'checkmark-circle' : 'close-circle'} 
-              size={24} 
-              color={alertType === 'success' ? '#059669' : '#EF4444'} 
-            />
-            <Text style={styles.alertText}>{alertMessage}</Text>
-          </View>
-        </View>
-      )}
-      
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.push('/(tabs)/Doctor/doctor_dashboard')}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          {unreadCount > 0 && (
-            <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </View>
-        {unreadCount > 0 && (
-          <TouchableOpacity onPress={markAllAsRead}>
-            <Text style={styles.markAllRead}>Mark all read</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={() => router.push('/(tabs)/Doctor/doctor_dashboard')}><Ionicons name="arrow-back" size={24} /></TouchableOpacity>
+        <Text style={styles.headerTitle}>Notifications</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      {/* Main Content */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
-        </View>
-      ) : notifications.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="notifications-off-outline" size={64} color="#D1D5DB" />
-          </View>
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptyText}>
-            You'll see connection requests and updates here
-          </Text>
-        </View>
-      ) : (
-        <ScrollView 
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        >
-          {/* Pending Connection Requests */}
-          {pendingNotifications.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Connection Requests ({pendingNotifications.length})
-              </Text>
-              {pendingNotifications.map((notification) => {
-                const iconData = getNotificationIcon(notification.type);
-                const isProcessing = processingId === notification.relatedConnection?._id;
-                
-                return (
-                  <View 
-                    key={notification._id} 
-                    style={[
-                      styles.notificationCard,
-                      !notification.isRead && styles.unreadCard
-                    ]}
-                  >
-                    <View style={styles.notificationHeader}>
-                      <View style={[styles.notificationIcon, { backgroundColor: iconData.bg }]}>
-                        <Ionicons name={iconData.name as any} size={24} color={iconData.color} />
-                      </View>
-                      <View style={styles.notificationContent}>
-                        <Text style={styles.notificationTitle}>
-                          New Connection Request
-                        </Text>
-                        <Text style={styles.notificationMessage}>
-                          {notification.sender?.firstName} {notification.sender?.lastName} wants to connect with you
-                        </Text>
-                        <Text style={styles.notificationTime}>
-                          {getTimeAgo(notification.createdAt)}
-                        </Text>
-                      </View>
-                    </View>
-                    
-                    {/* Action Buttons */}
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={[styles.acceptButton, isProcessing && styles.disabledButton]}
-                        onPress={() => handleConnectionResponse(
-                          notification.relatedConnection._id,
-                          'accept',
-                          notification._id
-                        )}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <>
-                            <Ionicons name="checkmark" size={18} color="#fff" />
-                            <Text style={styles.acceptButtonText}>Accept</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity
-                        style={[styles.rejectButton, isProcessing && styles.disabledButton]}
-                        onPress={() => handleConnectionResponse(
-                          notification.relatedConnection._id,
-                          'reject',
-                          notification._id
-                        )}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? (
-                          <ActivityIndicator size="small" color="#EF4444" />
-                        ) : (
-                          <>
-                            <Ionicons name="close" size={18} color="#EF4444" />
-                            <Text style={styles.rejectButtonText}>Decline</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
+      <ScrollView 
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchNotifications();}} />}
+      >
+        {notifications.map((notification) => (
+          <View 
+            key={notification._id} 
+            style={[styles.notificationCard, !notification.isRead && styles.unreadCard]}
+          >
+            <View style={styles.row}>
+              <View style={[styles.iconContainer, { backgroundColor: notification.type.includes('APPOINTMENT') ? '#FEF3C7' : '#DBEAFE' }]}>
+                <Ionicons 
+                  name={notification.type.includes('APPOINTMENT') ? "calendar" : "person-add"} 
+                  size={22} 
+                  color={notification.type.includes('APPOINTMENT') ? "#D97706" : "#2563EB"} 
+                />
+              </View>
+              <View style={styles.textContainer}>
+                <Text style={styles.messageText}>{notification.message}</Text>
+                {notification.type === 'APPOINTMENT_REQUEST' && notification.relatedAppointment && (
+                  <Text style={styles.subText}>
+                    Schedule: {new Date(notification.relatedAppointment.date).toLocaleDateString()} at {notification.relatedAppointment.startTime}
+                  </Text>
+                )}
+                <Text style={styles.timeText}>{getTimeAgo(notification.createdAt)}</Text>
+              </View>
             </View>
-          )}
 
-          {/* Other Notifications */}
-          {otherNotifications.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Recent Activity</Text>
-              {otherNotifications.map((notification) => {
-                const iconData = getNotificationIcon(notification.type);
-                
-                return (
-                  <TouchableOpacity
-                    key={notification._id}
-                    style={[
-                      styles.notificationCard,
-                      !notification.isRead && styles.unreadCard
-                    ]}
-                    onPress={() => markAsRead(notification._id)}
-                  >
-                    <View style={styles.notificationHeader}>
-                      <View style={[styles.notificationIcon, { backgroundColor: iconData.bg }]}>
-                        <Ionicons name={iconData.name as any} size={24} color={iconData.color} />
-                      </View>
-                      <View style={styles.notificationContent}>
-                        <Text style={styles.notificationMessage}>
-                          {notification.message}
-                        </Text>
-                        <Text style={styles.notificationTime}>
-                          {getTimeAgo(notification.createdAt)}
-                        </Text>
-                      </View>
-                      {!notification.isRead && (
-                        <View style={styles.unreadDot} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
-      )}
+            {/* ACTION BUTTONS: Now handles BOTH types */}
+            {!notification.isRead && (
+              <View style={styles.buttonRow}>
+                {notification.type === 'APPOINTMENT_REQUEST' && notification.relatedAppointment && (
+                  <>
+                    <TouchableOpacity 
+                      style={styles.confirmBtn}
+                      onPress={() => handleAppointmentResponse(notification.relatedAppointment!._id, 'confirmed', notification._id)}
+                      disabled={processingId === notification.relatedAppointment._id}
+                    >
+                      <Text style={styles.btnText}>Confirm Appointment</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.rejectBtn}
+                      onPress={() => handleAppointmentResponse(notification.relatedAppointment!._id, 'rejected', notification._id)}
+                      disabled={processingId === notification.relatedAppointment._id}
+                    >
+                      <Text style={styles.rejectText}>Reject</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {notification.type === 'CONNECTION_REQUEST' && notification.relatedConnection && (
+                  <>
+                    <TouchableOpacity 
+                      style={styles.confirmBtn}
+                      onPress={() => handleConnectionResponse(notification.relatedConnection!._id, 'accept', notification._id)}
+                      disabled={processingId === notification.relatedConnection._id}
+                    >
+                      <Text style={styles.btnText}>Accept Connection</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.rejectBtn}
+                      onPress={() => handleConnectionResponse(notification.relatedConnection!._id, 'reject', notification._id)}
+                      disabled={processingId === notification.relatedConnection._id}
+                    >
+                      <Text style={styles.rejectText}>Decline</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
+          </View>
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -649,4 +452,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
   },
+  row: { flexDirection: 'row', alignItems: 'flex-start' },
+  iconContainer: { padding: 10, borderRadius: 10, marginRight: 12 },
+  textContainer: { flex: 1 },
+  messageText: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
+  subText: { fontSize: 13, color: '#6B7280', marginTop: 4 },
+  timeText: { fontSize: 12, color: '#9CA3AF', marginTop: 4 },
+  buttonRow: { flexDirection: 'row', marginTop: 12, gap: 10 },
+  confirmBtn: { flex: 1, backgroundColor: '#2563EB', padding: 10, borderRadius: 8, alignItems: 'center' },
+  rejectBtn: { flex: 1, backgroundColor: '#fff', padding: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#EF4444' },
+  btnText: { color: '#fff', fontWeight: '700' },
+  rejectText: { color: '#EF4444', fontWeight: '700' },
 });

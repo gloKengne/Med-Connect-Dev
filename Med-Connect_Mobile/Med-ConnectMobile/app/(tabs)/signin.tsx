@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 
-const API_URL = 'http://localhost:5000/api/auth';
+const API_URL = 'http://192.168.1.165:5000/api/auth';
 
 export default function SignInPage() {
 

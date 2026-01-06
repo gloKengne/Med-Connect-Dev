@@ -5,6 +5,7 @@ import { RouterModule } from '@angular/router'
 import { NotificationService, Notification } from '../../services/notification';
 import { ConnectionService} from '../../services/connection';
 import { Subscription } from 'rxjs';
+import { AppointmentService } from '../../services/appointment.service';
 
 @Component({
   selector: 'app-shared-header',
@@ -14,7 +15,7 @@ import { Subscription } from 'rxjs';
   styleUrl: './shared-header.css',
 })
 export class SharedHeader  implements OnInit, OnDestroy{
- @Input() userType: 'patient' | 'doctor' = 'patient';
+  @Input() userType: 'patient' | 'doctor' = 'patient';
   @Input() userName: string = '';
 
   showProfileMenu: boolean = false;
@@ -34,19 +35,18 @@ export class SharedHeader  implements OnInit, OnDestroy{
   constructor(
     private router: Router,
     private notificationService: NotificationService,
-    private connection: ConnectionService
+    private connection: ConnectionService,
+    private appointmentService: AppointmentService
   ) {}
 
   ngOnInit(): void {
     this.loadUserFromAuth();
     this.loadNotifications();
     
-    // Subscribe to unread count updates
     this.unreadCountSubscription = this.notificationService.unreadCount$.subscribe(
       count => this.unreadCount = count
     );
     
-    // Initial load of unread count
     this.notificationService.getUnreadCount().subscribe();
   }
 
@@ -89,7 +89,7 @@ export class SharedHeader  implements OnInit, OnDestroy{
     if (this.showNotificationDropdown) {
       this.showProfileMenu = false;
       this.showRoleSwitcher = false;
-      this.loadNotifications(); // Reload when opening
+      this.loadNotifications();
     }
   }
 
@@ -120,7 +120,7 @@ export class SharedHeader  implements OnInit, OnDestroy{
       this.notificationService.markAsRead(notification._id).subscribe({
         next: () => {
           notification.isRead = true;
-          this.loadNotifications(); // Refresh list
+          this.loadNotifications();
         },
         error: (error) => {
           console.error('Error marking notification as read:', error);
@@ -131,19 +131,12 @@ export class SharedHeader  implements OnInit, OnDestroy{
 
   handleConnectionResponse(notification: Notification, action: 'accept' | 'reject'): void {
     console.log('=== Handling Connection Response ===');
-    console.log('Notification:', notification);
-    console.log('Action:', action);
     
     if (!notification.relatedConnection) {
-      console.error('No related connection found');
       alert('Error: Connection information is missing');
       return;
     }
 
-    console.log('Connection ID:', notification.relatedConnection._id);
-    console.log('Connection Status:', notification.relatedConnection.status);
-
-    // Check if already processed
     if (notification.relatedConnection.status !== 'pending') {
       alert(`This connection has already been ${notification.relatedConnection.status}`);
       this.loadNotifications();
@@ -152,29 +145,47 @@ export class SharedHeader  implements OnInit, OnDestroy{
 
     this.connection.respondToConnection(notification.relatedConnection._id, action).subscribe({
       next: (response) => {
-        console.log('Response received:', response);
         if (response.success) {
           alert(`Connection ${action}ed successfully!`);
           this.markNotificationAsRead(notification);
           this.loadNotifications();
-          
-          // Refresh unread count
           this.notificationService.refreshUnreadCount();
-        } else {
-          console.error('Response not successful:', response);
-          alert(response.message || `Failed to ${action} connection`);
         }
       },
       error: (error) => {
         console.error(`Error ${action}ing connection:`, error);
-        console.error('Error details:', error.error);
-        
-        let errorMessage = `Failed to ${action} connection.`;
-        if (error.error && error.error.message) {
-          errorMessage += ` ${error.error.message}`;
+        alert(`Failed to ${action} connection.`);
+      }
+    });
+  }
+
+  handleAppointmentResponse(notification: Notification, action: 'accept' | 'reject'): void {
+    console.log('=== Handling Appointment Response ===');
+    
+    if (!notification.relatedAppointment) {
+      alert('Error: Appointment information is missing');
+      return;
+    }
+
+    const appointmentId = notification.relatedAppointment._id;
+    let rejectionReason = '';
+
+    if (action === 'reject') {
+      rejectionReason = prompt('Please provide a reason for declining (optional):') || '';
+    }
+
+    this.appointmentService.respondToAppointment(appointmentId, action, rejectionReason).subscribe({
+      next: (response) => {
+        if (response.success) {
+          alert(`Appointment ${action}ed successfully!`);
+          this.markNotificationAsRead(notification);
+          this.loadNotifications();
+          this.notificationService.refreshUnreadCount();
         }
-        
-        alert(errorMessage);
+      },
+      error: (error) => {
+        console.error(`Error ${action}ing appointment:`, error);
+        alert(`Failed to ${action} appointment.`);
       }
     });
   }
@@ -184,9 +195,14 @@ export class SharedHeader  implements OnInit, OnDestroy{
       case 'CONNECTION_REQUEST':
         return 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2';
       case 'CONNECTION_ACCEPTED':
+      case 'APPOINTMENT_CONFIRMED':
         return 'M20 6 9 17 4 12';
       case 'CONNECTION_REJECTED':
+      case 'APPOINTMENT_REJECTED':
+      case 'APPOINTMENT_CANCELLED':
         return 'M18 6 6 18M6 6l12 12';
+      case 'APPOINTMENT_REQUEST':
+        return 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z';
       default:
         return 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9';
     }

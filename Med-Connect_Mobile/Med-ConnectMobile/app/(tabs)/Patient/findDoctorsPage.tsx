@@ -1,12 +1,12 @@
-// FindDoctorsPage.tsx - FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PatientHeader from './patient-header';
+import BookingModal from './book-appointment'; // Make sure the file name matches exactly
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'http://192.168.1.165:5000/api';
 
 interface Doctor {
   id: string;
@@ -16,7 +16,7 @@ interface Doctor {
   reviews: number;
   hospital: string;
   available: boolean;
-  connectionStatus: 'none' | 'pending' | 'accepted'; // Changed from boolean
+  connectionStatus: 'none' | 'pending' | 'accepted';
   isVerified: boolean;
 }
 
@@ -29,10 +29,9 @@ export default function FindDoctorsPage() {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('success');
 
+  // MODAL STATES
   const [bookingModalVisible, setBookingModalVisible] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [selectedDate, setSelectedDate] = useState('Today');
-  const [selectedTime, setSelectedTime] = useState('');
 
   useEffect(() => {
     fetchDoctors();
@@ -41,18 +40,12 @@ export default function FindDoctorsPage() {
   const fetchDoctors = async () => {
     try {
       setLoading(true);
-      
       const token = await AsyncStorage.getItem('authToken');
-      console.log('🔑 Token from storage:', token ? `${token.substring(0, 20)}...` : 'NULL');
-      
       if (!token) {
-        console.error('❌ No token found in AsyncStorage!');
         showAlert('Please login first', 'error');
         setLoading(false);
         return;
       }
-
-      console.log('📡 Making request to:', `${API_URL}/doctors`);
 
       const response = await fetch(`${API_URL}/doctors`, {
         method: 'GET',
@@ -62,27 +55,12 @@ export default function FindDoctorsPage() {
         },
       });
 
-      console.log('📥 Response status:', response.status);
-      
       const data = await response.json();
-      console.log('📦 Response data:', data);
       
-      if (response.status === 401 || response.status === 403) {
-        console.error('🚫 Authentication failed');
-        showAlert('Session expired. Please login again.', 'error');
-        await AsyncStorage.removeItem('authToken');
-        setLoading(false);
-        return;
-      }
-
       if (data.success) {
-        console.log('✅ Successfully fetched doctors:', data.doctors.length);
-        
-        // Map doctors and check connection status for each
         const mappedDoctors: Doctor[] = await Promise.all(
           data.doctors.map(async (doctor: any) => {
             let connectionStatus: 'none' | 'pending' | 'accepted' = 'none';
-            
             try {
               const connectionCheck = await fetch(`${API_URL}/connections/check/${doctor._id}`, {
                 method: 'GET',
@@ -91,19 +69,13 @@ export default function FindDoctorsPage() {
                   'Content-Type': 'application/json',
                 },
               });
-              
               const connectionData = await connectionCheck.json();
-              console.log(`Connection status for ${doctor.firstName}:`, connectionData);
-              
               if (connectionData.success && connectionData.connection) {
-                if (connectionData.isConnected) {
-                  connectionStatus = 'accepted';
-                } else if (connectionData.isPending) {
-                  connectionStatus = 'pending';
-                }
+                if (connectionData.isConnected) connectionStatus = 'accepted';
+                else if (connectionData.isPending) connectionStatus = 'pending';
               }
             } catch (error) {
-              console.log('Error checking connection for doctor:', doctor._id);
+              console.log('Error checking connection for:', doctor._id);
             }
 
             return {
@@ -119,14 +91,9 @@ export default function FindDoctorsPage() {
             };
           })
         );
-        
         setDoctors(mappedDoctors);
-      } else {
-        console.error('❌ Failed to fetch doctors:', data.message);
-        showAlert(data.message || 'Failed to fetch doctors', 'error');
       }
     } catch (error) {
-      console.error('💥 Error fetching doctors:', error);
       showAlert('Error loading doctors. Please try again.', 'error');
     } finally {
       setLoading(false);
@@ -137,312 +104,186 @@ export default function FindDoctorsPage() {
     setAlertMessage(message);
     setAlertType(type);
     setAlertVisible(true);
-    setTimeout(() => {
-      setAlertVisible(false);
-    }, 3000);
+    setTimeout(() => setAlertVisible(false), 3000);
   };
-
-  
 
   const handleConnect = async (doctorId: string) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-      
-      if (!token) {
-        showAlert('Please login first', 'error');
-        return;
-      }
-
-      console.log('🔗 Sending connection request to doctor:', doctorId);
-
       const response = await fetch(`${API_URL}/connections/request`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          doctorId: doctorId,
-          recordIds: []
-        })
+        body: JSON.stringify({ doctorId, recordIds: [] })
       });
-
       const data = await response.json();
-      console.log('📡 Connection response:', data);
-
       if (data.success) {
-        // Update UI to show pending state
-        setDoctors(prevDoctors =>
-          prevDoctors.map(doctor =>
-            doctor.id === doctorId ? { ...doctor, connectionStatus: 'pending' } : doctor
-          )
-        );
-        
-        const doctor = doctors.find(d => d.id === doctorId);
-        showAlert(`Connection request sent to ${doctor?.name}!`, 'success');
-      } else {
-        showAlert(data.message || 'Failed to send connection request', 'error');
+        setDoctors(prev => prev.map(d => d.id === doctorId ? { ...d, connectionStatus: 'pending' } : d));
+        showAlert(`Connection request sent!`, 'success');
       }
     } catch (error) {
-      console.error('💥 Error sending connection request:', error);
-      showAlert('Error sending connection request. Please try again.', 'error');
+      showAlert('Error sending connection request.', 'error');
     }
   };
 
   const handleDisconnect = async (doctorId: string) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-      
-      if (!token) {
-        showAlert('Please login first', 'error');
-        return;
-      }
-
-      // First, find the connection ID
       const checkResponse = await fetch(`${API_URL}/connections/check/${doctorId}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
-
       const checkData = await checkResponse.json();
 
       if (checkData.success && checkData.connection) {
-        // Revoke the connection
         const revokeResponse = await fetch(`${API_URL}/connections/${checkData.connection._id}/revoke`, {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
-
-        const revokeData = await revokeResponse.json();
-
-        if (revokeData.success) {
-          setDoctors(prevDoctors =>
-            prevDoctors.map(doctor =>
-              doctor.id === doctorId ? { ...doctor, connectionStatus: 'none' } : doctor
-            )
-          );
-          
-          const doctor = doctors.find(d => d.id === doctorId);
-          showAlert(`Disconnected from ${doctor?.name}`, 'info');
-        } else {
-          showAlert(revokeData.message || 'Failed to disconnect', 'error');
+        if ((await revokeResponse.json()).success) {
+          setDoctors(prev => prev.map(d => d.id === doctorId ? { ...d, connectionStatus: 'none' } : d));
+          showAlert(`Disconnected successfully`, 'info');
         }
       }
     } catch (error) {
-      console.error('💥 Error disconnecting:', error);
-      showAlert('Error disconnecting. Please try again.', 'error');
+      showAlert('Error disconnecting.', 'error');
     }
   };
 
+  // MODAL TRIGGER FUNCTION
   const handleBookAppointment = (doctorId: string) => {
     const doctor = doctors.find(d => d.id === doctorId);
-    showAlert(`Booking appointment with ${doctor?.name}...`, 'info');
+    if (doctor) {
+      setSelectedDoctor(doctor);
+      setBookingModalVisible(true);
+    }
   };
 
-  const confirmBooking = () => {
-  if (!selectedTime) {
-    showAlert('Please select a time slot', 'error');
-    return;
+  // MODAL CONFIRM FUNCTION
+  const onBookingConfirm = async (date: string, time: string) => {
+  try {
+    const token = await AsyncStorage.getItem('authToken');
+    
+    // 1. Prepare the data
+    // Assuming a 30-minute slot. You can adjust this based on doctor availability.
+    const startTime = time; // e.g., "09:00"
+    const [hours, minutes] = time.split(':').map(Number);
+    const endMinutes = minutes + 30;
+    const endHours = hours + Math.floor(endMinutes / 60);
+    const endTime = `${endHours.toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`;
+
+    const bookingData = {
+      doctorId: selectedDoctor?.id,
+      date: date,           // "2026-01-12"
+      startTime: startTime, // "09:00"
+      endTime: endTime,     // "09:30"
+      type: "in-person",    // Default type
+      reason: "General Consultation",
+      notes: ""
+    };
+
+    // 2. Call the API
+    const response = await fetch(`${API_URL}/appointments/book`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(bookingData),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      setBookingModalVisible(false);
+      showAlert(`Success: ${data.message}`, 'success');
+    } else {
+      showAlert(data.message || 'Booking failed', 'error');
+    }
+  } catch (error) {
+    console.error('Error booking appointment:', error);
+    showAlert('Network error. Try again.', 'error');
   }
-  setBookingModalVisible(false);
-  showAlert(`Appointment requested with ${selectedDoctor?.name} for ${selectedDate} at ${selectedTime}`, 'success');
-  // Add your API call here to save the appointment
 };
 
   const filteredDoctors = doctors.filter(doctor =>
     doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doctor.hospital.toLowerCase().includes(searchQuery.toLowerCase())
+    doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Custom Alert */}
+      {/* Custom Alert Overlay */}
       {alertVisible && (
-        <View style={[
-          styles.alertContainer, 
-          alertType === 'success' ? styles.alertSuccess : 
-          alertType === 'error' ? styles.alertError : 
-          styles.alertInfo
-        ]}>
+        <View style={[styles.alertContainer, alertType === 'success' ? styles.alertSuccess : alertType === 'error' ? styles.alertError : styles.alertInfo]}>
           <View style={styles.alertContent}>
-            <Ionicons 
-              name={
-                alertType === 'success' ? 'checkmark-circle' : 
-                alertType === 'error' ? 'close-circle' :
-                'information-circle'
-              } 
-              size={24} 
-              color={
-                alertType === 'success' ? '#059669' : 
-                alertType === 'error' ? '#EF4444' :
-                '#2563EB'
-              } 
-            />
+            <Ionicons name={alertType === 'success' ? 'checkmark-circle' : alertType === 'error' ? 'close-circle' : 'information-circle'} size={24} color={alertType === 'success' ? '#059669' : alertType === 'error' ? '#EF4444' : '#2563EB'} />
             <Text style={styles.alertText}>{alertMessage}</Text>
           </View>
         </View>
       )}
       
-      {/* Header */}
       <PatientHeader activeTab="FindDoctors" unreadCount={5}/>
 
-      {/* Main Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleSection}>
           <Text style={styles.title}>Find Healthcare Providers</Text>
-          <Text style={styles.subtitle}>
-            Connect with verified doctors and manage your healthcare network
-          </Text>
+          <Text style={styles.subtitle}>Connect with verified doctors and manage your healthcare network</Text>
         </View>
 
-        {/* Search and Filter */}
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
             <Ionicons name="search-outline" size={20} color="#666" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search doctors by name or specialty..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor="#999"
-            />
+            <TextInput style={styles.searchInput} placeholder="Search doctors..." value={searchQuery} onChangeText={setSearchQuery} placeholderTextColor="#999" />
           </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options-outline" size={20} color="#2563EB" />
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.filterButton}><Ionicons name="options-outline" size={20} color="#2563EB" /></TouchableOpacity>
         </View>
 
-        {/* Loading State */}
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563EB" />
-            <Text style={styles.loadingText}>Loading doctors...</Text>
-          </View>
+          <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#2563EB" /><Text style={styles.loadingText}>Loading doctors...</Text></View>
         ) : filteredDoctors.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={64} color="#D1D5DB" />
-            <Text style={styles.emptyText}>
-              {searchQuery ? 'No doctors found matching your search' : 'No doctors available'}
-            </Text>
-            <TouchableOpacity 
-              style={styles.retryButton}
-              onPress={fetchDoctors}
-            >
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.emptyContainer}><Ionicons name="people-outline" size={64} color="#D1D5DB" /><Text style={styles.emptyText}>No doctors found</Text></View>
         ) : (
-          /* Doctor Cards */
           <View style={styles.doctorsContainer}>
             {filteredDoctors.map((doctor) => (
               <View key={doctor.id} style={styles.doctorCard}>
-                {/* Status Badge */}
+                {/* Badges logic */}
                 {doctor.connectionStatus === 'pending' && (
-                  <View style={[styles.connectedBadge, { backgroundColor: '#FEF3C7' }]}>
-                    <Ionicons name="time-outline" size={14} color="#F59E0B" />
-                    <Text style={[styles.connectedBadgeText, { color: '#F59E0B' }]}>Pending</Text>
-                  </View>
+                  <View style={[styles.connectedBadge, { backgroundColor: '#FEF3C7' }]}><Ionicons name="time-outline" size={14} color="#F59E0B" /><Text style={[styles.connectedBadgeText, { color: '#F59E0B' }]}>Pending</Text></View>
                 )}
                 {doctor.connectionStatus === 'accepted' && (
-                  <View style={styles.connectedBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                    <Text style={styles.connectedBadgeText}>Connected</Text>
-                  </View>
+                  <View style={styles.connectedBadge}><Ionicons name="checkmark-circle" size={14} color="#059669" /><Text style={styles.connectedBadgeText}>Connected</Text></View>
                 )}
 
-                {/* Verified Badge */}
-                {doctor.isVerified && (
-                  <View style={[styles.connectedBadge, { 
-                    top: doctor.connectionStatus !== 'none' ? 48 : 16, 
-                    backgroundColor: '#DBEAFE' 
-                  }]}>
-                    <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
-                    <Text style={[styles.connectedBadgeText, { color: '#2563EB' }]}>Verified</Text>
-                  </View>
-                )}
+                <View style={styles.avatarContainer}><View style={styles.avatar}><Ionicons name="person" size={36} color="#2563EB" /></View></View>
 
-                {/* Doctor Avatar */}
-                <View style={styles.avatarContainer}>
-                  <View style={styles.avatar}>
-                    <Ionicons name="person" size={36} color="#2563EB" />
-                  </View>
-                </View>
-
-                {/* Doctor Info */}
                 <View style={styles.doctorInfo}>
                   <Text style={styles.doctorName}>{doctor.name}</Text>
                   <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
-
-                  {doctor.rating > 0 && (
-                    <View style={styles.ratingContainer}>
-                      <Ionicons name="star" size={16} color="#FFA500" />
-                      <Text style={styles.ratingText}>
-                        {doctor.rating.toFixed(1)} ({doctor.reviews} reviews)
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.infoRow}>
-                    <Ionicons name="location-outline" size={16} color="#666" />
-                    <Text style={styles.infoText}>{doctor.hospital}</Text>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <Ionicons 
-                      name="calendar-outline" 
-                      size={16} 
-                      color={doctor.available ? "#10B981" : "#EF4444"} 
-                    />
-                    <Text style={doctor.available ? styles.availableText : styles.unavailableText}>
-                      {doctor.available ? 'Available Today' : 'Not Available'}
-                    </Text>
-                  </View>
+                  <View style={styles.infoRow}><Ionicons name="location-outline" size={16} color="#666" /><Text style={styles.infoText}>{doctor.hospital}</Text></View>
+                  <View style={styles.infoRow}><Ionicons name="calendar-outline" size={16} color={doctor.available ? "#10B981" : "#EF4444"} /><Text style={doctor.available ? styles.availableText : styles.unavailableText}>{doctor.available ? 'Available Today' : 'Not Available'}</Text></View>
                 </View>
 
-                {/* Action Buttons */}
                 <View style={styles.buttonContainer}>
                   {doctor.connectionStatus === 'none' && (
-                    <TouchableOpacity
-                      style={styles.connectButton}
-                      onPress={() => handleConnect(doctor.id)}
-                    >
-                      <Ionicons name="person-add-outline" size={18} color="#fff" />
-                      <Text style={styles.connectButtonText}>Connect</Text>
+                    <TouchableOpacity style={styles.connectButton} onPress={() => handleConnect(doctor.id)}>
+                      <Ionicons name="person-add-outline" size={18} color="#fff" /><Text style={styles.connectButtonText}>Connect</Text>
                     </TouchableOpacity>
                   )}
-
                   {doctor.connectionStatus === 'pending' && (
-                    <View style={styles.pendingButton}>
-                      <Ionicons name="time-outline" size={18} color="#F59E0B" />
-                      <Text style={styles.pendingButtonText}>Request Pending</Text>
-                    </View>
+                    <View style={styles.pendingButton}><Ionicons name="time-outline" size={18} color="#F59E0B" /><Text style={styles.pendingButtonText}>Request Pending</Text></View>
                   )}
-
                   {doctor.connectionStatus === 'accepted' && (
                     <>
-                      <TouchableOpacity
-                        style={styles.bookButton}
-                        onPress={() => handleBookAppointment(doctor.id)}
-                      >
-                        <Ionicons name="calendar-outline" size={18} color="#2563EB" />
-                        <Text style={styles.bookButtonText}>Book Appointment</Text>
+                      <TouchableOpacity style={styles.bookButton} onPress={() => handleBookAppointment(doctor.id)}>
+                        <Ionicons name="calendar-outline" size={18} color="#2563EB" /><Text style={styles.bookButtonText}>Book Appointment</Text>
                       </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.disconnectButton}
-                        onPress={() => handleDisconnect(doctor.id)}
-                      >
-                        <Ionicons name="person-remove-outline" size={18} color="#EF4444" />
-                        <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                      <TouchableOpacity style={styles.disconnectButton} onPress={() => handleDisconnect(doctor.id)}>
+                        <Ionicons name="person-remove-outline" size={18} color="#EF4444" /><Text style={styles.disconnectButtonText}>Disconnect</Text>
                       </TouchableOpacity>
                     </>
                   )}
@@ -453,8 +294,13 @@ export default function FindDoctorsPage() {
         )}
       </ScrollView>
 
-      
-
+      {/* THE BOOKING MODAL */}
+      <BookingModal 
+        isVisible={bookingModalVisible}
+        onClose={() => setBookingModalVisible(false)}
+        doctorName={selectedDoctor?.name || ''}
+        onConfirm={onBookingConfirm}
+      />
     </SafeAreaView>
   );
 }

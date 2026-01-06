@@ -32,11 +32,22 @@
           >
         </div>
 
-        <div class="conversations-list">
+        <!-- Loading State -->
+        <div class="loading-state" *ngIf="isLoading">
+          <p>Loading conversations...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="!isLoading && conversations.length === 0">
+          <p>No conversations yet</p>
+        </div>
+
+        <!-- Conversations List -->
+        <div class="conversations-list" *ngIf="!isLoading">
           <div 
             class="conversation-item" 
             *ngFor="let conv of conversations" 
-            [class.active]="conv.id === selectedConversation.id"
+            [class.active]="selectedConversation && conv.id === selectedConversation.id"
             (click)="selectConversation(conv)"
           >
             <div class="conv-avatar" [class.online]="conv.online">
@@ -58,7 +69,7 @@
       </div>
 
       <!-- Chat Panel -->
-      <div class="chat-panel">
+      <div class="chat-panel" *ngIf="selectedConversation">
         <!-- Chat Header -->
         <div class="chat-header">
           <div class="patient-header">
@@ -69,12 +80,18 @@
               </svg>
             </div>
             <div class="patient-info-chat">
-              <strong>{{ selectedConversation.name || 'Emily Davis' }}</strong>
-              <span class="online-status">
+              <strong>{{ selectedConversation.name }}</strong>
+              <span class="online-status" *ngIf="selectedConversation.online">
                 <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="#10b981">
                   <circle cx="12" cy="12" r="10"/>
                 </svg>
                 Online
+              </span>
+              <span class="online-status" *ngIf="!selectedConversation.online" style="color: #94a3b8;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="#94a3b8">
+                  <circle cx="12" cy="12" r="10"/>
+                </svg>
+                Offline
               </span>
             </div>
           </div>
@@ -90,7 +107,15 @@
         <!-- Messages Area -->
         <div class="messages-area" #messagesArea>
           <div class="message" *ngFor="let msg of messages" [class.doctor]="msg.isDoctor">
-            <div class="message-bubble">{{ msg.text }}</div>
+            <div class="message-bubble">
+              {{ msg.text }}
+              <div class="attachment-info" *ngIf="msg.hasAttachment">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+                {{ msg.attachmentName }}
+              </div>
+            </div>
             <div class="message-time">{{ msg.time }}</div>
           </div>
 
@@ -104,71 +129,71 @@
           </div>
         </div>
 
-        <!-- Message Input Area - Simplified Layout -->
-<div class="message-input-area">
-  <!-- Attached File Display (shown above input when file is attached) -->
-  <div class="attached-file" *ngIf="attachedFile">
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="file-icon">
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-      <polyline points="14 2 14 8 20 8"/>
-    </svg>
-    <div class="file-info">
-      <span class="file-name">{{ attachedFile.name }}</span>
-      <span class="file-size">{{ formatFileSize(attachedFile.size) }}</span>
-    </div>
-    <button type="button" class="btn-remove-file" (click)="removeAttachment()">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"/>
-        <line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
-  </div>
+        <!-- Message Input Area -->
+        <div class="message-input-area">
+          <!-- Attached File Display -->
+          <div class="attached-file" *ngIf="attachedFile">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="file-icon">
+              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <div class="file-info">
+              <span class="file-name">{{ attachedFile.name }}</span>
+              <span class="file-size">{{ formatFileSize(attachedFile.size) }}</span>
+            </div>
+            <button type="button" class="btn-remove-file" (click)="removeAttachment()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
 
-  <!-- Input Wrapper -->
-  <div class="input-wrapper">
-    <!-- Attach Button -->
-    <button class="attach-btn" (click)="triggerFileInput()" type="button" title="Attach file">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-      </svg>
-    </button>
+          <!-- Input Wrapper -->
+          <div class="input-wrapper">
+            <!-- Attach Button -->
+            <button class="attach-btn" (click)="triggerFileInput()" type="button" title="Attach file">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
 
-    <!-- Message Textarea -->
-    <textarea 
-      class="message-input"
-      [(ngModel)]="messageText"
-      (keydown)="onEnterPress($event)"
-      placeholder="Type your message..."
-      [maxlength]="1000"
-      rows="1"
-    ></textarea>
+            <!-- Message Textarea -->
+            <textarea 
+              class="message-input"
+              [(ngModel)]="messageText"
+              (keydown)="onEnterPress($event)"
+              placeholder="Type your message..."
+              [maxlength]="1000"
+              rows="1"
+            ></textarea>
 
-    <!-- Hidden File Input -->
-    <input 
-      type="file" 
-      #fileInput
-      class="file-input-hidden" 
-      (change)="onFileSelected($event)"
-      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-    >
+            <!-- Hidden File Input -->
+            <input 
+              type="file" 
+              #fileInput
+              class="file-input-hidden" 
+              (change)="onFileSelected($event)"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            >
 
-    <!-- Send Button -->
-    <button 
-      class="send-btn" 
-      (click)="sendMessage()" 
-      [disabled]="!messageText.trim() && !attachedFile"
-      title="Send message"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"/>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-    </button>
-  </div>
+            <!-- Send Button -->
+            <button 
+              class="send-btn" 
+              (click)="sendMessage()" 
+              [disabled]="!messageText.trim() && !attachedFile"
+              title="Send message"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
 
-  <!-- Character Count -->
-  <div class="char-count">{{ messageText.length }} / 1000</div>
-</div>
+          <!-- Character Count -->
+          <div class="char-count">{{ messageText.length }} / 1000</div>
+        </div>
 
         <!-- Encryption Notice -->
         <div class="encryption-notice">
@@ -178,6 +203,15 @@
           </svg>
           Messages are end-to-end encrypted
         </div>
+      </div>
+
+      <!-- Empty Chat Panel -->
+      <div class="chat-panel-empty" *ngIf="!selectedConversation && !isLoading">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <h3>Select a conversation</h3>
+        <p>Choose a conversation from the list to start messaging</p>
       </div>
     </div>
   </main>

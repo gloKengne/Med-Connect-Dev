@@ -16,7 +16,11 @@ import notificationRoutes from "./routes/notification.routes.js";
 import doctorProfileRoutes from "./routes/doctor-profile.routes.js";
 import patientProfileRoutes from "./routes/patient-profile.routes.js";
 import dashboardRoutes from './routes/dashboardRoutes.js';
-import messageRoutes from './routes/message.routes.js';
+// import messageRoutes from './routes/message.routes.js';
+
+import messageRoutes from "./routes/message.routes.js";
+import appointmentRoutes from "./routes/appointment.routes.js";
+import availabilityRoutes from "./routes/availability.routes.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -72,6 +76,9 @@ app.use("/api/connections", connectionRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/doctors", doctorProfileRoutes);
 app.use("/api/patients", patientProfileRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/appointments", appointmentRoutes);
+app.use("/api/availability", availabilityRoutes);
 app.use("/api/test", testInsert);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/messages', messageRoutes);

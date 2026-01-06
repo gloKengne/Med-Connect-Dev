@@ -5,10 +5,13 @@ import { FormsModule } from '@angular/forms';
 import { SharedHeader } from '../../features/shared-header/shared-header';
 import { DoctorService, Doctor } from '../../services/doctor';
 import { ConnectionService } from '../../services/connection';
+import { MessageService } from '../../services/message';
+import { AppointmentService, TimeSlot } from '../../services/appointment.service';
 
 interface DoctorDisplay extends Doctor {
   isConnected: boolean;
   isPending: boolean;
+  connectionId?: string;
 }
 
 interface CalendarDay {
@@ -27,7 +30,9 @@ interface CalendarDay {
 })
 export class FindDoctors implements OnInit {
 
+  
   userName: string = '';
+  currentUserId: string = '';
   searchQuery: string = '';
   selectedSpecialty: string = 'all';
   
@@ -50,43 +55,44 @@ export class FindDoctors implements OnInit {
   showBookingModal: boolean = false;
   selectedDoctor: DoctorDisplay | null = null;
   messageText: string = '';
-  
+
   // Booking form
-  appointmentType: string = 'in-person';
-  selectedDate: number = 13;
-  selectedTime: string = '';
-  appointmentReason: string = '';
-  
-  // Calendar
-  calendarDays: CalendarDay[] = [];
-  currentMonth: string = 'November 2025';
-  currentYear = new Date().getFullYear();
-  currentMonthIndex = new Date().getMonth();
-  
-  // Time slots
-  availableTimeSlots: string[] = [
-    '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM',
-    '11:00 AM', '11:30 AM', '02:00 PM', '02:30 PM',
-    '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM'
-  ];
+  bookingForm = {
+    date: '',
+    startTime: '',
+    endTime: '',
+    type: 'in-person' as 'in-person' | 'video',
+    reason: '',
+    notes: ''
+  };
+  availableSlots: TimeSlot[] = [];
+  loadingSlots: boolean = false;
+  minDate: string = '';
 
   constructor(
     private router: Router,
     private DoctorService: DoctorService,
-    private connectionService: ConnectionService
-  ) {}
+    private connectionService: ConnectionService,
+    private messageService: MessageService,
+    private appointmentService: AppointmentService
+  ) {
+    // Set minimum date to today
+    const today = new Date();
+    this.minDate = today.toISOString().split('T')[0];
+  }
 
   ngOnInit(): void {
     this.loadUserInfo();
     this.loadDoctors();
-    this.generateCalendarDays();
   }
 
   loadUserInfo(): void {
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       const user = JSON.parse(storedUser);
+      this.currentUserId = user.id || user._id;
       this.userName = `${user.firstName} ${user.lastName}`;
+      console.log('👤 Patient loaded:', this.userName, 'ID:', this.currentUserId);
     }
   }
 
@@ -96,20 +102,20 @@ export class FindDoctors implements OnInit {
       .subscribe({
         next: (response) => {
           if (response.success && response.doctors) {
-            // Map backend doctors to display format
+            console.log('✅ Doctors loaded:', response.doctors.length);
             this.allDoctors = response.doctors.map(doc => ({
               ...doc,
               isConnected: false,
-              isPending: false
+              isPending: false,
+              connectionId: undefined
             }));
             
-            // Check connection status for each doctor
             this.checkConnectionStatuses();
           }
           this.isLoading = false;
         },
         error: (error) => {
-          console.error('Error loading doctors:', error);
+          console.error('❌ Error loading doctors:', error);
           this.isLoading = false;
           alert('Failed to load doctors. Please try again.');
         }
@@ -117,36 +123,58 @@ export class FindDoctors implements OnInit {
   }
 
   checkConnectionStatuses(): void {
-    this.allDoctors.forEach((doctor, index) => {
-      this.connectionService.checkConnection(doctor._id).subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.allDoctors[index].isConnected = response.isConnected || false;
-            this.allDoctors[index].isPending = response.isPending || false;
-          }
-          // Update filtered doctors after checking all
-          if (index === this.allDoctors.length - 1) {
-            this.filterDoctors();
-          }
-        },
-        error: (error) => {
-          console.error('Error checking connection:', error);
+    console.log('🔍 Checking connection statuses...');
+    
+    this.connectionService.getPatientConnections().subscribe({
+      next: (response) => {
+        if (response.success && response.connections) {
+          console.log('✅ Patient connections:', response.connections.length);
+          
+          const connectionMap = new Map();
+          response.connections.forEach(conn => {
+            const doctorId = (conn.doctor as any)._id || (conn.doctor as any).userId;
+            connectionMap.set(doctorId, {
+              isConnected: conn.status === 'accepted',
+              isPending: conn.status === 'pending',
+              connectionId: conn._id
+            });
+          });
+
+          this.allDoctors = this.allDoctors.map(doctor => {
+            const connInfo = connectionMap.get(doctor._id);
+            return {
+              ...doctor,
+              isConnected: connInfo?.isConnected || false,
+              isPending: connInfo?.isPending || false,
+              connectionId: connInfo?.connectionId
+            };
+          });
+
+          this.filterDoctors();
         }
-      });
+      },
+      error: (error) => {
+        console.error('❌ Error checking connections:', error);
+        this.filterDoctors();
+      }
     });
   }
 
   onSearch(): void {
+    console.log('🔎 Searching with query:', this.searchQuery);
     this.loadDoctors();
   }
 
   onSpecialtyChange(): void {
+    console.log('🥼 Specialty changed to:', this.selectedSpecialty);
     this.loadDoctors();
   }
 
-  filterDoctors(): void {
-    this.filteredDoctors = [...this.allDoctors];
-  }
+ filterDoctors(): void {
+  // Show all doctors
+  this.filteredDoctors = [...this.allDoctors];
+  console.log('📋 Filtered doctors:', this.filteredDoctors.length);
+}
 
   connectWithDoctor(doctor: DoctorDisplay): void {
     if (doctor.isPending) {
@@ -154,15 +182,23 @@ export class FindDoctors implements OnInit {
       return;
     }
 
+    if (doctor.isConnected) {
+      alert('You are already connected with this doctor.');
+      return;
+    }
+
+    console.log('🔗 Requesting connection to doctor:', doctor._id);
+
     this.connectionService.requestConnection(doctor._id).subscribe({
       next: (response) => {
         if (response.success) {
+          console.log('✅ Connection request sent');
           alert(`Connection request sent to Dr. ${doctor.firstName} ${doctor.lastName}!`);
           doctor.isPending = true;
         }
       },
       error: (error) => {
-        console.error('Error requesting connection:', error);
+        console.error('❌ Error requesting connection:', error);
         alert('Failed to send connection request. Please try again.');
       }
     });
@@ -173,10 +209,19 @@ export class FindDoctors implements OnInit {
   }
 
   openMessageModal(doctor: DoctorDisplay): void {
+    if (!doctor.isConnected) {
+      alert('You must be connected to message this doctor.');
+      return;
+    }
+
+    if (!doctor.connectionId) {
+      alert('Connection ID not found. Please refresh the page.');
+      return;
+    }
+
     this.selectedDoctor = doctor;
     this.messageText = '';
     this.showMessageModal = true;
-    this.showBookingModal = false;
   }
 
   closeMessageModal(): void {
@@ -186,127 +231,135 @@ export class FindDoctors implements OnInit {
   }
 
   sendMessage(): void {
-    if (this.messageText.trim() && this.selectedDoctor) {
-      console.log('Sending message to:', this.selectedDoctor.firstName, this.messageText);
-      alert('Message sent successfully!');
-      this.closeMessageModal();
+    if (!this.messageText.trim() || !this.selectedDoctor || !this.selectedDoctor.connectionId) {
+      return;
     }
+
+    this.messageService.sendMessage(
+      this.selectedDoctor.connectionId,
+      this.messageText.trim()
+    ).subscribe({
+      next: (response) => {
+        if (response.success) {
+          alert('Message sent successfully!');
+          this.closeMessageModal();
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error sending message:', error);
+        alert('Failed to send message. Please try again.');
+      }
+    });
   }
 
   openBookingModal(doctor: DoctorDisplay): void {
+    if (!doctor.isConnected) {
+      alert('You must be connected to book an appointment with this doctor.');
+      return;
+    }
+
+    console.log('📅 Opening booking modal for:', doctor.firstName, doctor.lastName);
     this.selectedDoctor = doctor;
-    this.appointmentType = 'in-person';
-    this.selectedTime = '';
-    this.appointmentReason = '';
-    this.generateCalendarDays();
+    this.resetBookingForm();
     this.showBookingModal = true;
-    this.showMessageModal = false;
   }
 
   closeBookingModal(): void {
     this.showBookingModal = false;
     this.selectedDoctor = null;
+    this.resetBookingForm();
+  }
+
+  resetBookingForm(): void {
+    this.bookingForm = {
+      date: '',
+      startTime: '',
+      endTime: '',
+      type: 'in-person',
+      reason: '',
+      notes: ''
+    };
+    this.availableSlots = [];
+  }
+
+  onDateChange(): void {
+    if (!this.bookingForm.date || !this.selectedDoctor) {
+      return;
+    }
+
+    console.log('📅 Date changed to:', this.bookingForm.date);
+    this.bookingForm.startTime = '';
+    this.bookingForm.endTime = '';
+    this.loadAvailableSlots();
+  }
+
+  loadAvailableSlots(): void {
+    if (!this.selectedDoctor || !this.bookingForm.date) {
+      return;
+    }
+
+    this.loadingSlots = true;
+    this.appointmentService.getDoctorAvailability(
+      this.selectedDoctor._id,
+      this.bookingForm.date
+    ).subscribe({
+      next: (response) => {
+        if (response.success && response.availability) {
+          this.availableSlots = response.availability.slots;
+          console.log('✅ Available slots loaded:', this.availableSlots.length);
+        }
+        this.loadingSlots = false;
+      },
+      error: (error) => {
+        console.error('❌ Error loading slots:', error);
+        alert('Failed to load available time slots.');
+        this.loadingSlots = false;
+      }
+    });
+  }
+
+  selectTimeSlot(slot: TimeSlot): void {
+    this.bookingForm.startTime = slot.start;
+    this.bookingForm.endTime = slot.end;
+    console.log('🕐 Time slot selected:', slot);
+  }
+
+  isBookingFormValid(): boolean {
+    return !!(
+      this.bookingForm.date &&
+      this.bookingForm.startTime &&
+      this.bookingForm.type &&
+      this.bookingForm.reason.trim()
+    );
   }
 
   confirmBooking(): void {
-    if (!this.selectedDate) {
-      alert('Please select a date for your appointment.');
+    if (!this.isBookingFormValid() || !this.selectedDoctor) {
       return;
     }
-    
-    if (!this.selectedTime) {
-      alert('Please select a time slot for your appointment.');
-      return;
-    }
-    
-    if (this.selectedDoctor) {
-      console.log('Booking appointment:', {
-        doctor: `${this.selectedDoctor.firstName} ${this.selectedDoctor.lastName}`,
-        type: this.appointmentType,
-        date: `${this.currentMonth} ${this.selectedDate}`,
-        time: this.selectedTime,
-        reason: this.appointmentReason
-      });
-      
-      alert(`Appointment booked successfully with ${this.getFullDoctorName(this.selectedDoctor)} on ${this.currentMonth} ${this.selectedDate} at ${this.selectedTime}`);
-      this.closeBookingModal();
-      this.router.navigate(['/appointment']);
-    }
-  }
 
-  // Calendar methods
-  generateCalendarDays(): void {
-    const firstDay = new Date(this.currentYear, this.currentMonthIndex, 1);
-    const lastDay = new Date(this.currentYear, this.currentMonthIndex + 1, 0);
+    console.log('📝 Confirming booking:', this.bookingForm);
 
-    this.currentMonth = firstDay.toLocaleString('default', {
-      month: 'long',
-      year: 'numeric'
+    this.appointmentService.bookAppointment({
+      doctorId: this.selectedDoctor._id,
+      date: this.bookingForm.date,
+      startTime: this.bookingForm.startTime,
+      endTime: this.bookingForm.endTime,
+      type: this.bookingForm.type,
+      reason: this.bookingForm.reason,
+      notes: this.bookingForm.notes
+    }).subscribe({
+      next: (response) => {
+        if (response.success) {
+          alert('Appointment request sent successfully! The doctor will review and confirm.');
+          this.closeBookingModal();
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error booking appointment:', error);
+        const errorMsg = error.error?.message || 'Failed to book appointment. Please try again.';
+        alert(errorMsg);
+      }
     });
-
-    const startWeekDay = firstDay.getDay();
-    const daysInMonth = lastDay.getDate();
-    const days: CalendarDay[] = [];
-
-    // Previous month days
-    const prevMonthLastDay = new Date(this.currentYear, this.currentMonthIndex, 0).getDate();
-    for (let i = startWeekDay - 1; i >= 0; i--) {
-      days.push({
-        day: prevMonthLastDay - i,
-        disabled: true,
-        isCurrentMonth: false,
-        isSelected: false
-      });
-    }
-
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({
-        day: i,
-        isCurrentMonth: true,
-        isSelected: i === this.selectedDate,
-        disabled: false
-      });
-    }
-
-    // Next month days
-    while (days.length < 42) {
-      days.push({
-        day: days.length - (startWeekDay + daysInMonth) + 1,
-        disabled: true,
-        isCurrentMonth: false,
-        isSelected: false
-      });
-    }
-
-    this.calendarDays = days;
-  }
-
-  prevMonth(): void {
-    this.currentMonthIndex--;
-    if (this.currentMonthIndex < 0) {
-      this.currentMonthIndex = 11;
-      this.currentYear--;
-    }
-    this.generateCalendarDays();
-  }
-
-  nextMonth(): void {
-    this.currentMonthIndex++;
-    if (this.currentMonthIndex > 11) {
-      this.currentMonthIndex = 0;
-      this.currentYear++;
-    }
-    this.generateCalendarDays();
-  }
-
-  selectDate(day: CalendarDay): void {
-    if (day.disabled || !day.isCurrentMonth) return;
-    this.selectedDate = day.day;
-    this.generateCalendarDays();
-  }
-
-  selectTimeSlot(time: string): void {
-    this.selectedTime = time;
   }
 }

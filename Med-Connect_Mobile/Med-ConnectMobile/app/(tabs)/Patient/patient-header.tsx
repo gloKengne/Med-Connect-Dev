@@ -21,11 +21,12 @@ export default function PatientHeader({ activeTab, unreadCount = 0, firstName = 
   };
 
   const navItems = [
-    { id: 'Dashboard', label: 'Dashboard', path: '/(tabs)/Patient/patient_dashboard' },
-    { id: 'Records', label: 'My Records', path: '/(tabs)/Patient/records' },
-    { id: 'FindDoctors', label: 'Find Doctors', path: '/(tabs)/Patient/findDoctorsPage' },
-    { id: 'Messages', label: 'Messages', path: '/(tabs)/Patient/messages' },
-    { id: 'Appointments', label: 'Appointments', path: '/(tabs)/Patient/appointmentPage' },
+    // Remove the (tabs) group from the path strings
+    { id: 'Dashboard', label: 'Dashboard', path: '/Patient/patient_dashboard' },
+    { id: 'Records', label: 'My Records', path: '/Patient/records' },
+    { id: 'FindDoctors', label: 'Find Doctors', path: '/Patient/findDoctorsPage' },
+    { id: 'Messages', label: 'Messages', path: '/Patient/messages' },
+    { id: 'Appointments', label: 'Appointments', path: '/Patient/appointment' },
   ];
 
   return (

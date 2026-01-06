@@ -1,22 +1,16 @@
-import express from "express";
-import authMiddle from "../middleware/authMiddle.js";
-import { upload } from "../middleware/upload.js";
-import { uploadDocument, getMyDocuments, getDocumentById,
-  deleteDocument } from "../controllers/documentController.js";
+// controllers/documentController.js
 
+export const getMyDocuments = async (req, res) => {
+  try {
+    // If a patientId is provided in the URL query (by a doctor), use that.
+    // Otherwise, use the ID of the logged-in user (the patient).
+    const targetId = req.query.patientId || req.user.id;
 
-const router = express.Router();
+    const docs = await Document.find({ patientId: targetId }).sort({ docDate: -1 });
+    res.json({ success: true, documents: docs });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Could not fetch documents" });
+  }
+};
 
-// Upload a new document
-router.post("/upload", authMiddle, upload.single("file"), uploadDocument);
-
-// Get all documents for the logged-in user
-router.get("/my-documents", authMiddle, getMyDocuments);
-
-// Get a specific document by ID
-router.get("/:id", authMiddle, getDocumentById);
-
-// Delete a document
-router.delete("/:id", authMiddle, deleteDocument);
-
-export default router;

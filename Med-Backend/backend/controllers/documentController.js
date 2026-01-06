@@ -66,3 +66,21 @@ export const deleteDocument = async (req, res) => {
     res.status(500).json({ error: "Could not delete document" });
   }
 };
+
+// export const getPatientDocumentsForDoctor = async (req, res) => {
+//   try {
+//     const { patientId } = req.params;
+//     // Check if the patientId is a valid MongoDB ObjectId to prevent crashes
+//     if (!patientId.match(/^[0-9a-fA-F]{24}$/)) {
+//         return res.status(400).json({ success: false, error: "Invalid Patient ID" });
+//     }
+
+//     const docs = await Document.find({ patientId: patientId }).sort({ docDate: -1 });
+    
+//     // Always return a JSON object with success: true
+//     res.json({ success: true, documents: docs });
+//   } catch (err) {
+//     console.error("Backend Error:", err);
+//     res.status(500).json({ success: false, error: "Internal Server Error" });
+//   }
+// };

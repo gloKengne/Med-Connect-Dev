@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PatientHeader from './patient-header';
 
-const API_URL = 'http://192.168.1.165:5000/api';
+const API_URL = 'http://localhost:5000/api';
 
 interface Doctor {
   id: string;
@@ -28,6 +28,11 @@ export default function FindDoctorsPage() {
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState('success');
+
+  const [bookingModalVisible, setBookingModalVisible] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedDate, setSelectedDate] = useState('Today');
+  const [selectedTime, setSelectedTime] = useState('');
 
   useEffect(() => {
     fetchDoctors();
@@ -137,6 +142,8 @@ export default function FindDoctorsPage() {
     }, 3000);
   };
 
+  
+
   const handleConnect = async (doctorId: string) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
@@ -237,6 +244,16 @@ export default function FindDoctorsPage() {
     const doctor = doctors.find(d => d.id === doctorId);
     showAlert(`Booking appointment with ${doctor?.name}...`, 'info');
   };
+
+  const confirmBooking = () => {
+  if (!selectedTime) {
+    showAlert('Please select a time slot', 'error');
+    return;
+  }
+  setBookingModalVisible(false);
+  showAlert(`Appointment requested with ${selectedDoctor?.name} for ${selectedDate} at ${selectedTime}`, 'success');
+  // Add your API call here to save the appointment
+};
 
   const filteredDoctors = doctors.filter(doctor =>
     doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -435,6 +452,9 @@ export default function FindDoctorsPage() {
           </View>
         )}
       </ScrollView>
+
+      
+
     </SafeAreaView>
   );
 }

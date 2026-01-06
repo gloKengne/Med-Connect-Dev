@@ -256,7 +256,19 @@ export default function DoctorPatientsPage() {
 
                   {/* Action Buttons */}
                   <View style={styles.actionButtons}>
-                    <TouchableOpacity style={styles.viewRecordsButton}>
+                    <TouchableOpacity 
+                      style={styles.viewRecordsButton}
+                      onPress={() => router.push({
+                        pathname: "./view-records", // Ensure this matches your file path
+                        params: { 
+                          patientId: patient.id,
+                          patientName: patient.name,
+                          age: patient.age,
+                          gender: patient.gender,
+                          condition: patient.condition
+                        }
+                      })}
+                    >
                       <Ionicons name="eye-outline" size={18} color="#2563EB" />
                       <Text style={styles.viewRecordsText}>View Records</Text>
                     </TouchableOpacity>

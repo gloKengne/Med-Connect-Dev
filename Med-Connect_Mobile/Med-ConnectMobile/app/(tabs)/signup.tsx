@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, Alert, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from 'react-native';
 
-const API_URL = 'http://localhost:5000/api'; // Base API URL
+const API_URL = 'http://192.168.1.165:5000/api'; // Base API URL
 
 export default function SignUpPage({ navigation }: { navigation: any }) {
   const [firstName, setFirstName] = useState('');
